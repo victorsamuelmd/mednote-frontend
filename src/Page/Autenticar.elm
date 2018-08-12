@@ -15,7 +15,7 @@ type alias Model =
     { usuario : String
     , palabraClave : String
     , campoEnfocado : Maybe Campo
-    , errores : List ( Campo, String )
+    , error : Maybe String
     }
 
 
@@ -23,7 +23,7 @@ inicial =
     { usuario = ""
     , palabraClave = ""
     , campoEnfocado = Nothing
-    , errores = []
+    , error = Nothing
     }
 
 
@@ -56,8 +56,40 @@ validador =
         ]
 
 
+view : Model -> Html Msg
 view model =
     div []
-        [ input [ placeholder "Usuario", onInput DefinirUsuario ] []
-        , input [ placeholder "Contrasena", onInput DefinirPalabraClave ] []
+        [ div [ class "field" ]
+            [ input
+                [ placeholder "Usuario"
+                , onInput DefinirUsuario
+                , type_ "text"
+                , class "input"
+                , onFocus <| CampoEnfocado UsuarioCampo
+                , onBlur CampoDesenfocado
+                ]
+                []
+            ]
+        , div [ class "field" ]
+            [ input
+                [ placeholder "Contrasena"
+                , onInput DefinirPalabraClave
+                , type_ "password"
+                , class "input"
+                , onFocus <| CampoEnfocado PalabraClaveCampo
+                , onBlur CampoDesenfocado
+                ]
+                []
+            ]
+        , showError model.error
         ]
+
+
+showError : Maybe String -> Html Msg
+showError str =
+    case str of
+        Just string ->
+            span [] [ text string ]
+
+        Nothing ->
+            text ""

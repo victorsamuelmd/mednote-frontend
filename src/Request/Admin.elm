@@ -1,7 +1,9 @@
 module Request.Admin exposing (..)
 
 import Http
+import HttpBuilder
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Data.Usuario exposing (..)
 
 
@@ -51,3 +53,14 @@ crearUsuario model msg =
                 , timeout = Nothing
                 , withCredentials = False
                 }
+
+
+editar :
+    { a | authorization : String, usuario : Usuario }
+    -> (Result Http.Error String -> msg)
+    -> Cmd msg
+editar record msg =
+    HttpBuilder.put ("http://localhost:8070/usuarios/" ++ record.usuario.id)
+        |> HttpBuilder.withJsonBody (encodeUsuarioEditar record.usuario)
+        |> HttpBuilder.withExpect (Http.expectString)
+        |> HttpBuilder.send msg

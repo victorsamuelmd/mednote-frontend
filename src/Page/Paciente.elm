@@ -1,4 +1,4 @@
-module Page.HistoriaUrgencias exposing (..)
+module Page.Pacientes exposing (..)
 
 import Html exposing (..)
 import Html.Events exposing (..)
@@ -35,6 +35,7 @@ textareaControl labelText nameText valueText msg =
             ]
             []
         ]
+
 
 view msg =
     div []

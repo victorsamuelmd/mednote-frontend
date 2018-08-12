@@ -1,422 +1,215 @@
 module Main exposing (..)
 
-import Navigation exposing (Location)
+import Navigation exposing (Location, newUrl)
 import UrlParser exposing (..)
-import Html exposing (Html, text, div, input, label, button)
+import Html exposing (Html, text, div, input, label, button, a, p, span, i)
 import Html.Attributes exposing (src, class, type_, value, name, defaultValue)
 import Html.Events exposing (onInput, onClick)
 import Json.Encode as Encode
 import Json.Decode as Decode exposing (field)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 import Http
+import HttpBuilder
 import Ports
 import Page.HistoriaUrgencias
 import Data.HistoriaUrgencias exposing (..)
 import Data.Paciente exposing (..)
-import Date exposing (..)
-import Task exposing (perform)
 import Request.HistoriaUrgencias
+import Request.Admin
 import Validate exposing (validate)
+import Page.Autenticar as Autenticar
+import Page.Admin as Admin
+import Router exposing (..)
 
 
 ---- MODEL ----
 
 
-type alias Usuario =
-    { id : String
-    , usuario : String
-    , correoElectronico : String
-    , grupo : String
-    , fechaCreacion : String
-    }
-
-
-type alias UsuarioCrear =
-    { usuario : String
-    , correoElectronico : String
-    , grupo : String
-    , palabraClave : String
-    }
-
-
-definirUsuario : String -> UsuarioCrear -> UsuarioCrear
-definirUsuario str usr =
-    { usr | usuario = str }
-
-
-definirCorreoElectronico : String -> UsuarioCrear -> UsuarioCrear
-definirCorreoElectronico str usr =
-    { usr | correoElectronico = str }
-
-
-definirGrupo : String -> UsuarioCrear -> UsuarioCrear
-definirGrupo str usr =
-    { usr | grupo = str }
-
-
-definirPalabraClave : String -> UsuarioCrear -> UsuarioCrear
-definirPalabraClave str usr =
-    { usr | palabraClave = str }
-
-
-type VistasMedicos
-    = VistaCrearPaciente
-    | VistaBuscarPacientes
-    | VistaCrearHistoria
+type State
+    = Admin Admin.Model
+    | Autenticar Autenticar.Model
+    | NotFound
 
 
 type alias Model =
-    { username : Maybe String
-    , route : Route
-    , grupo : Maybe String
-    , usernameInput : String
-    , passwordInput : String
-    , error : String
-    , authorization : Maybe String
-    , porNombre : String
-    , listaUsuarios : List Usuario
-    , pacienteActual : Maybe Paciente
-    , historiaUrgencias : Data.HistoriaUrgencias.Model
-    , vistaActual : AdminVistas
-    , usuarioEditar : Maybe Usuario
-    , usuarioCrear : UsuarioCrear
-    , pacienteCrear : Paciente
-    , pacienteBuscar : { nombres : String, apellidos : String, documentoNumero : String }
-    , listaPacientes : List Paciente
-    , vistaMedicosActual : VistasMedicos
-    }
+    { session : Maybe Admin.Credentials, pageState : State }
 
 
-init : Location -> ( Model, Cmd Msg )
-init location =
+init : Decode.Value -> Location -> ( Model, Cmd Msg )
+init val location =
     let
         currentRoute =
             parseLocation location
+
+        session =
+            decodeSession val
     in
-        ( { username = Nothing
-          , route = LoginRoute
-          , grupo = Nothing
-          , usernameInput = ""
-          , passwordInput = ""
-          , error = ""
-          , authorization = Nothing
-          , porNombre = ""
-          , listaUsuarios = []
-          , pacienteActual = Nothing
-          , historiaUrgencias = initialHistoriaUrgencias
-          , vistaActual = ListaUsuarioVista
-          , usuarioEditar = Nothing
-          , usuarioCrear = UsuarioCrear "" "" "" ""
-          , pacienteCrear = initialPaciente
-          , pacienteBuscar = { nombres = "", apellidos = "", documentoNumero = "" }
-          , listaPacientes = []
-          , vistaMedicosActual = VistaBuscarPacientes
-          }
-        , Ports.toJs "session"
-        )
+        case ( currentRoute, session ) of
+            ( LoginRoute, Nothing ) ->
+                ( { session = Nothing, pageState = Autenticar Autenticar.inicial }, Cmd.none )
+
+            ( _, Nothing ) ->
+                ( { pageState = Autenticar Autenticar.inicial, session = Nothing }
+                , Cmd.batch [ newUrl "/" ]
+                )
+
+            ( AdminRoute, Just session ) ->
+                ( { pageState = Admin Admin.inicial, session = Just session }
+                , Cmd.batch
+                    [ Cmd.map OriginalMsg <|
+                        Request.Admin.solicitarUsuarios
+                            session.authorization
+                            Admin.SolicitarUsuariosHttp
+                    ]
+                )
+
+            _ ->
+                ( { pageState = Autenticar Autenticar.inicial, session = Nothing }
+                , Cmd.batch [ newUrl "/" ]
+                )
+
+
+decodeSession val =
+    Decode.decodeValue Admin.decodeCredentials val
+        |> Result.toMaybe
+
+
+type Msg
+    = OnLocationChange Location
+    | OriginalMsg Admin.Msg
+    | AutenticarMsg Autenticar.Msg
+    | EnviarAutenticar
+    | EnviarAutenticarHttp (Result Http.Error Admin.Credentials)
+    | Salir
 
 
 
 ---- UPDATE ----
 
 
-type Msg
-    = NoOp String
-    | Salir
-    | OnLocationChange Location
-      -- Autenticacion
-    | Autenticar
-    | AutenticarServer (Result Http.Error Credentials)
-    | DefinirNombreUsuario String
-    | DefinirPassword String
-      -- Lista de Usuarios
-    | SolicitarUsuarios
-    | SolicitarUsuariosHttp (Result Http.Error (List Usuario))
-      -- historia
-    | SolicitarHistoriaUrgencias
-    | SolicitarHistoriaUrgenciasHttp (Result Http.Error Data.HistoriaUrgencias.Model)
-    | SendStringToJs
-    | SetCredentials Credentials
-    | EditarUsuario Usuario
-      -- Crear Usuario
-    | DefinirNombreUsuarioCrear String
-    | DefinirGrupoCrear String
-    | DefinirCorreoElectronicoCrear String
-    | DefinirPalabraClaveCrear String
-    | PasarACrearUsuario
-    | EnviarCrearUsuario
-    | EnviarCrearUsuarioHttp (Result Http.Error String)
-      -- Crear Perfiles (Pacientes)
-    | DefinirCampoPaciente (String -> Paciente -> Paciente) String
-    | EnviarCrearPaciente
-    | EnviarCrearPacienteHttp (Result Http.Error String)
-      -- Solicitar Perfiles (Pacientes)
-    | CambiarVistaMedicos VistasMedicos
-    | DefinirNombresBuscar String
-    | DefinirApellidosBuscar String
-    | DefinirDocumentoBuscar String
-    | EnviarBuscarPaciente
-    | EnviarBuscarPacienteHttp (Result Http.Error (List Paciente))
-    | SeleccionarPacienteParaHistoria Paciente
-      -- Editar Historia Urgencias
-    | DefinirFechaInicioConsulta Date
-    | HistoriaUrgenciasMsg Page.HistoriaUrgencias.Msg
-    | EnviarGuardarHistoria
-    | EnviarGuardarHistoriaHttp (Result Http.Error String)
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
-update action model =
-    case action of
-        NoOp _ ->
-            model ! []
+update msg model =
+    updatePage model.pageState msg model
 
-        OnLocationChange location ->
-            let
-                newRoute =
-                    parseLocation location
-            in
-                ( { model | route = newRoute }, Cmd.none )
 
-        Salir ->
-            ( { model
-                | username = Nothing
-                , grupo = Nothing
-                , authorization = Nothing
-              }
-            , Ports.toJs "salir"
-            )
+enviarAutenticar cred =
+    HttpBuilder.post "http://localhost:8070/login"
+        |> HttpBuilder.withJsonBody (credEncoder cred)
+        |> HttpBuilder.withExpect (Http.expectJson Admin.decodeCredentials)
+        |> HttpBuilder.send EnviarAutenticarHttp
 
-        DefinirNombreUsuario nuevo ->
-            ( { model | usernameInput = nuevo }, Cmd.none )
 
-        DefinirPassword nuevo ->
-            ( { model | passwordInput = nuevo }, Cmd.none )
+credEncoder model =
+    Encode.object
+        [ ( "username", Encode.string model.usuario )
+        , ( "password", Encode.string model.palabraClave )
+        ]
 
-        Autenticar ->
-            ( model, sendCredentials model )
 
-        AutenticarServer (Ok key) ->
-            ( { model
-                | username = key.username
-                , grupo = key.grupo
-                , authorization = key.authorization
-              }
+updatePage : State -> Msg -> Model -> ( Model, Cmd Msg )
+updatePage state msg model =
+    case ( msg, state ) of
+        ( EnviarAutenticar, Autenticar subModel ) ->
+            ( model, enviarAutenticar subModel )
+
+        ( EnviarAutenticarHttp (Ok cred), Autenticar subModel ) ->
+            ( { model | session = Just cred }
             , Cmd.batch
-                [ solicitarUsuarios model
-                , Request.HistoriaUrgencias.solicitar SolicitarHistoriaUrgenciasHttp (Maybe.withDefault "" model.authorization)
-                , Ports.storeSession (Maybe.withDefault "" key.authorization)
+                [ newUrl "#admin"
+                , Ports.storeSession cred.authorization
                 ]
             )
-                |> Debug.log (toString key)
 
-        AutenticarServer (Err err) ->
-            ( { model | error = "No existe el usuario o la clave es incorrecta." }
-                |> Debug.log (toString err)
-            , Cmd.none
-            )
-
-        SolicitarUsuarios ->
-            ( model, solicitarUsuarios model )
-
-        SolicitarUsuariosHttp (Ok listaUsuarios) ->
-            ( { model | listaUsuarios = listaUsuarios }
-                |> Debug.log (toString listaUsuarios)
-            , Cmd.none
-            )
-
-        SolicitarUsuariosHttp (Err err) ->
-            ( model |> Debug.log (toString err), Cmd.none )
-
-        SolicitarHistoriaUrgencias ->
-            ( model, Request.HistoriaUrgencias.solicitar SolicitarHistoriaUrgenciasHttp (Maybe.withDefault "" model.authorization) )
-
-        SolicitarHistoriaUrgenciasHttp (Ok historiaUrgencias) ->
-            ( { model | historiaUrgencias = historiaUrgencias }
-                |> Debug.log (toString historiaUrgencias)
-            , Cmd.none
-            )
-
-        SolicitarHistoriaUrgenciasHttp (Err err) ->
-            ( model |> Debug.log (toString err), Cmd.none )
-
-        SendStringToJs ->
-            ( model, Ports.toJs "Victor" )
-
-        SetCredentials key ->
+        ( EnviarAutenticarHttp (Err err), Autenticar subModel ) ->
             ( { model
-                | username = key.username
-                , grupo = key.grupo
-                , authorization = key.authorization
-              }
-            , if key.grupo == Just "ADMIN" then
-                solicitarUsuarios model
-              else
-                Cmd.none
-            )
-
-        EditarUsuario usr ->
-            ( { model | usuarioEditar = Just usr, vistaActual = ActualizarUsuarioVista }, Cmd.none )
-
-        DefinirNombreUsuarioCrear str ->
-            ( { model
-                | usuarioCrear =
-                    model.usuarioCrear
-                        |> definirUsuario str
+                | pageState =
+                    Autenticar
+                        { subModel | error = Just "Usuario o palabra clave invalida" }
               }
             , Cmd.none
             )
 
-        DefinirGrupoCrear str ->
+        ( OriginalMsg msg, Admin subModel ) ->
+            case model.session of
+                Just session ->
+                    let
+                        ( subM, subCmd ) =
+                            Admin.update session msg subModel
+                    in
+                        ( { model | pageState = Admin subM }, Cmd.map OriginalMsg subCmd )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        ( AutenticarMsg msg, Autenticar subModel ) ->
+            let
+                subM =
+                    Autenticar.update msg subModel
+            in
+                ( { model | pageState = Autenticar subM }, Cmd.none )
+
+        ( OnLocationChange location, Admin subModel ) ->
+            case model.session of
+                Just session ->
+                    let
+                        loc =
+                            parseLocation location
+
+                        inicialOriginal =
+                            Admin.inicial
+                    in
+                        case loc of
+                            AdminRoute ->
+                                ( { model | pageState = Admin subModel }
+                                , Cmd.map OriginalMsg <|
+                                    Request.Admin.solicitarUsuarios
+                                        session.authorization
+                                        Admin.SolicitarUsuariosHttp
+                                )
+
+                            _ ->
+                                ( model, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        ( OnLocationChange location, _ ) ->
+            let
+                loc =
+                    parseLocation location
+            in
+                case loc of
+                    AdminRoute ->
+                        case model.session of
+                            Just session ->
+                                ( { model | pageState = Admin Admin.inicial }
+                                , Cmd.map OriginalMsg <|
+                                    Request.Admin.solicitarUsuarios
+                                        session.authorization
+                                        Admin.SolicitarUsuariosHttp
+                                )
+
+                            Nothing ->
+                                ( model, newUrl "/" )
+
+                    LoginRoute ->
+                        ( { model | pageState = Autenticar Autenticar.inicial }, Cmd.none )
+
+                    NotFoundRoute ->
+                        ( { model | pageState = NotFound }, Cmd.none )
+
+                    _ ->
+                        ( model, Cmd.none )
+
+        ( Salir, _ ) ->
             ( { model
-                | usuarioCrear =
-                    model.usuarioCrear
-                        |> definirGrupo str
+                | session = Nothing
+                , pageState = Autenticar Autenticar.inicial
               }
-            , Cmd.none
+            , Cmd.batch [ Ports.toJs "salir", newUrl "/" ]
             )
 
-        DefinirCorreoElectronicoCrear str ->
-            ( { model
-                | usuarioCrear =
-                    model.usuarioCrear
-                        |> definirCorreoElectronico str
-              }
-            , Cmd.none
-            )
-
-        DefinirPalabraClaveCrear str ->
-            ( { model
-                | usuarioCrear =
-                    model.usuarioCrear
-                        |> definirPalabraClave str
-              }
-            , Cmd.none
-            )
-
-        PasarACrearUsuario ->
-            { model | vistaActual = CrearUsuarioVista } ! []
-
-        EnviarCrearUsuario ->
-            ( model, crearUsuario model )
-
-        EnviarCrearUsuarioHttp (Ok id) ->
-            ( model, Cmd.none )
-
-        EnviarCrearUsuarioHttp (Err err) ->
-            ( model, Cmd.none )
-
-        --- Crear Perfiles ---
-        DefinirCampoPaciente func str ->
-            ( { model | pacienteCrear = model.pacienteCrear |> func str }, Cmd.none )
-
-        -- TODO falta el apropiado manejo de errores y la notificacion de que fue
-        -- exitosa la creacion del paciente
-        CambiarVistaMedicos vst ->
-            ( { model | vistaMedicosActual = vst }, Cmd.none )
-
-        EnviarCrearPaciente ->
-            ( model, crearPaciente model )
-
-        EnviarCrearPacienteHttp (Ok id) ->
-            ( model, Cmd.none )
-
-        EnviarCrearPacienteHttp (Err err) ->
-            ( model, Cmd.none )
-
-        -- TODO obtener lista de perfiles
-        DefinirNombresBuscar nuevo ->
-            let
-                paciente =
-                    model.pacienteBuscar
-
-                nuevoPaciente =
-                    { paciente | nombres = nuevo }
-            in
-                ( { model | pacienteBuscar = nuevoPaciente }, Cmd.none )
-
-        DefinirApellidosBuscar nuevo ->
-            let
-                paciente =
-                    model.pacienteBuscar
-
-                nuevoPaciente =
-                    { paciente | apellidos = nuevo }
-            in
-                ( { model | pacienteBuscar = nuevoPaciente }, Cmd.none )
-
-        DefinirDocumentoBuscar nuevo ->
-            let
-                paciente =
-                    model.pacienteBuscar
-
-                nuevoPaciente =
-                    { paciente | documentoNumero = nuevo }
-            in
-                ( { model | pacienteBuscar = nuevoPaciente }, Cmd.none )
-
-        EnviarBuscarPaciente ->
-            ( model, buscarPacientes model )
-
-        EnviarBuscarPacienteHttp (Ok pct) ->
-            ( { model | listaPacientes = pct }, Cmd.none )
-
-        EnviarBuscarPacienteHttp (Err err) ->
-            ( model, Cmd.none )
-
-        SeleccionarPacienteParaHistoria pct ->
-            let
-                historia =
-                    model.historiaUrgencias
-
-                nuevaHistoria =
-                    { historia
-                        | paciente = pct.id
-                        , medico = Maybe.withDefault "" model.username
-                    }
-            in
-                ( { model
-                    | pacienteActual = Just pct
-                    , vistaMedicosActual = VistaCrearHistoria
-                    , historiaUrgencias = nuevaHistoria
-                  }
-                , getTime
-                )
-
-        -- Editar Historia de Urgencias
-        DefinirFechaInicioConsulta tm ->
-            let
-                historia =
-                    model.historiaUrgencias
-
-                nuevaHistoria =
-                    { historia
-                        | fechaInicio = formatDate tm
-                        , fechaFinalizacion = formatDate tm
-                    }
-            in
-                ( { model | historiaUrgencias = nuevaHistoria }, Cmd.none ) |> Debug.log (toString tm)
-
-        HistoriaUrgenciasMsg subMsg ->
-            let
-                ( subModel, cmdMsg ) =
-                    Page.HistoriaUrgencias.update subMsg model.historiaUrgencias
-            in
-                ( { model | historiaUrgencias = subModel }, Cmd.map HistoriaUrgenciasMsg cmdMsg )
-
-        EnviarGuardarHistoria ->
-            ( model, model.historiaUrgencias |> Request.HistoriaUrgencias.guardar EnviarGuardarHistoriaHttp (Maybe.withDefault "" model.authorization) )
-
-        EnviarGuardarHistoriaHttp (Ok id) ->
-            ( { model
-                | pacienteActual = Nothing
-                , historiaUrgencias = initialHistoriaUrgencias
-                , vistaMedicosActual = VistaBuscarPacientes
-              }
-            , Cmd.none
-            )
-
-        EnviarGuardarHistoriaHttp (Err err) ->
+        ( _, _ ) ->
             ( model, Cmd.none )
 
 
@@ -424,547 +217,80 @@ update action model =
 ---- VIEW ----
 
 
+zeroOrInt : String -> Int
 zeroOrInt str =
     Result.withDefault 0 <| String.toInt str
 
 
+oneOrInt : String -> Int
 oneOrInt str =
     Result.withDefault 1 <| String.toInt str
 
 
+zeroOrFloat : String -> Float
 zeroOrFloat str =
     Result.withDefault 0.0 <| String.toFloat str
 
 
-maybeEmpty : Maybe Usuario -> Usuario
-maybeEmpty x =
-    Maybe.withDefault (Usuario "" "" "" "" "") x
-
-
-type AdminVistas
-    = CrearUsuarioVista
-    | ListaUsuarioVista
-    | ActualizarUsuarioVista
-
-
-adminVista : Model -> Html Msg
-adminVista model =
-    case model.vistaActual of
-        CrearUsuarioVista ->
-            div [] [ crearUsuarioCuestionario model ]
-
-        ListaUsuarioVista ->
-            div [] [ viewNavBar model, viewUsers model ]
-
-        ActualizarUsuarioVista ->
-            div []
-                [ viewNavBar model
-                , div []
-                    [ inputControl
-                        "Nombre de Usuario"
-                        "usuario"
-                        (maybeEmpty model.usuarioEditar).usuario
-                        NoOp
-                    , inputControl
-                        "Grupo"
-                        "grupo"
-                        (maybeEmpty model.usuarioEditar).grupo
-                        NoOp
-                    , inputControl
-                        "Correo Electronico"
-                        "correoElectronico"
-                        (maybeEmpty model.usuarioEditar).correoElectronico
-                        NoOp
+navBar : String -> Html Msg
+navBar usuario =
+    div [ class "navbar" ]
+        [ div [ class "container" ]
+            [ div [ class "navbar-brand" ]
+                [ span [ class "navbar-item" ] [ text "MedNote" ] ]
+            , div [ class "navbar-menu" ]
+                [ div [ class "navbar-start" ]
+                    []
+                , div [ class "navbar-end" ]
+                    [ a [ class "navbar-item", onClick Salir ]
+                        [ span [ class "icon" ] [ i [ class "fas fa-sign-out-alt" ] [] ], text "Salir" ]
+                    , p [ class "navbar-item" ]
+                        [ span [ class "icon" ] [ i [ class "fas fa-user" ] [] ], text usuario ]
                     ]
                 ]
-
-
-crearUsuarioCuestionario model =
-    div []
-        [ inputControl
-            "Nombre de Usuario"
-            "usuario"
-            ""
-            DefinirNombreUsuarioCrear
-        , inputControl
-            "Grupo"
-            "grupo"
-            ""
-            DefinirGrupoCrear
-        , inputControl
-            "Correo Electronico"
-            "correoElectronico"
-            ""
-            DefinirCorreoElectronicoCrear
-        , inputControl
-            "Contrasena"
-            "palabraClave"
-            ""
-            DefinirPalabraClaveCrear
-        , button [ class "btn btn-success", onClick EnviarCrearUsuario ] [ text "Crear" ]
-        ]
-
-
-inputControl : String -> String -> String -> (String -> Msg) -> Html Msg
-inputControl labelText nameText valueText msg =
-    div [ class "form-group" ]
-        [ label [] [ text labelText ]
-        , input
-            [ type_ "text"
-            , class "form-control"
-            , name nameText
-            , Html.Attributes.id nameText
-            , defaultValue valueText
-            , onInput msg
             ]
-            []
-        ]
-
-
-textareaControl : String -> String -> String -> (String -> Msg) -> Html Msg
-textareaControl labelText nameText valueText msg =
-    div [ class "form-group" ]
-        [ label [] [ text labelText ]
-        , Html.textarea
-            [ class "form-control"
-            , name nameText
-            , Html.Attributes.id nameText
-            , defaultValue valueText
-            , onInput msg
-            ]
-            []
         ]
 
 
 view : Model -> Html Msg
 view model =
-    case model.route of
-        NotFoundRoute ->
-            text "Not Found"
+    case model.pageState of
+        Admin subModel ->
+            div []
+                [ navBar <| Maybe.withDefault "" (Maybe.map .username model.session)
+                , Admin.view subModel
+                    |> Html.map OriginalMsg
+                ]
 
-        LoginRoute ->
-            viewLogin model
-
-        MedicoRoute _ ->
-            vistaMedicos model
-
-        AdminRoute ->
-            adminVista model
-
-
-
--- TODO
-
-
-viewVieja : Model -> Html Msg
-viewVieja model =
-    div [ class "container" ]
-        [ if model.username == Nothing then
-            viewLogin model
-          else
-            case model.grupo of
-                Just "ADMIN" ->
-                    adminVista model
-
-                Just "MED" ->
-                    vistaMedicos model
-
-                Just _ ->
-                    div [] [ viewNavBar model ]
-
-                Nothing ->
-                    div [] [ viewNavBar model ]
-        ]
-
-
-vistaMedicos : Model -> Html Msg
-vistaMedicos model =
-    div []
-        [ viewNavBar model
-        , div [ class "container" ]
-            [ div [ class "row" ]
-                [ Html.aside [ class "col-md-3 nav flex-column" ]
-                    [ Html.a
-                        [ class "nav-item nav-link", Html.Attributes.href "#", onClick (CambiarVistaMedicos VistaCrearPaciente) ]
-                        [ text "Crear Paciente" ]
-                    , Html.a
-                        [ class "nav-item nav-link", Html.Attributes.href "#", onClick (CambiarVistaMedicos VistaBuscarPacientes) ]
-                        [ text "Buscar Paciente" ]
+        Autenticar subModel ->
+            div [ class "hero is-success is-fullheight" ]
+                [ div [ class "hero-body" ]
+                    [ div [ class "container has-text-centered" ]
+                        [ Html.h3 [ class "title has-text-gray" ] [ text "MedNote" ]
+                        , div [ class "column is-4 is-offset-4" ]
+                            [ div [ class "box" ]
+                                [ Autenticar.view subModel |> Html.map AutenticarMsg
+                                , Html.a [ class "button is-primary is-large is-fullwidth is-block", onClick EnviarAutenticar ] [ text "Autenticar" ]
+                                ]
+                            ]
+                        ]
                     ]
-                , vistaSeccionMedicos model
-                ]
-            ]
-        ]
-
-
-vistaSeccionMedicos model =
-    case model.vistaMedicosActual of
-        VistaCrearPaciente ->
-            Html.section [ class "col" ]
-                -- TODO
-                [ button [ class "btn btn-primary", onClick EnviarCrearPaciente ] [ text "Crear" ]
                 ]
 
-        VistaBuscarPacientes ->
-            Html.section [ class "col" ]
-                [ inputControl "Nombres" "buscarNombres" "" DefinirNombresBuscar
-                , inputControl "Apellidos" "buscarApellidos" "" DefinirApellidosBuscar
-                , inputControl "Documento" "buscarDocumento" "" DefinirDocumentoBuscar
-                , button [ onClick EnviarBuscarPaciente, class "btn btn-warning" ] [ text "Buscar" ]
-                , div [] <| List.map verPaciente model.listaPacientes
-                ]
-
-        VistaCrearHistoria ->
-            Html.section [ class "col" ]
-                [ Html.h3 [] [ text <| .nombres <| Maybe.withDefault initialPaciente model.pacienteActual ]
-                , Page.HistoriaUrgencias.view model.historiaUrgencias |> Html.map HistoriaUrgenciasMsg
-                , button [ onClick EnviarGuardarHistoria, class "btn btn-success" ] [ text "Guardar" ]
-                , div [] <| List.map (\a -> text a) (validate Page.HistoriaUrgencias.modelValidator model.historiaUrgencias)
-                ]
+        NotFound ->
+            div [] [ text "Not Found" ]
 
 
-verPaciente : Paciente -> Html Msg
-verPaciente pct =
-    div [ class "card" ]
-        [ div [ class "card-header" ] [ text <| pct.nombres ++ " ", text pct.apellidos ]
-        , div [ class "card-body" ]
-            [ Html.h5 [ class "card-title" ]
-                [ text <| pct.documentoTipo ++ " ", text pct.documentoNumero ]
-            , button [ class "btn btn-success", onClick (SeleccionarPacienteParaHistoria pct) ]
-                [ text "Iniciar Consulta Urgencias" ]
-            ]
-        ]
-
-
-viewUsers model =
-    let
-        viewUser a =
-            Html.tr [ onClick (EditarUsuario a) ]
-                [ Html.td [] [ text a.usuario ]
-                , Html.td [] [ text a.grupo ]
-                , Html.td [] [ text a.correoElectronico ]
-                , Html.td [] [ text a.fechaCreacion ]
-                ]
-    in
-        div []
-            [ Html.table [ class "table" ] <| List.map viewUser model.listaUsuarios
-            , button
-                [ onClick SolicitarUsuarios
-                , class "btn btn-outline-primary"
-                ]
-                [ text "Actualizar Lista Usuarios" ]
-            , button
-                [ onClick PasarACrearUsuario
-                , class "btn btn-outline-primary"
-                ]
-                [ text "Crear Usuario" ]
-            ]
-
-
-viewLogin model =
-    div []
-        [ inputControl "Nombre de usuario" "username" "" DefinirNombreUsuario
-        , inputControl "Clave" "password" "" DefinirPassword
-        , button [ onClick Autenticar, class "btn btn-outline-primary", type_ "submit" ] [ text "Ingresar" ]
-        , Html.small [ class "form-text" ] [ text model.error ]
-        ]
-
-
-viewNavBar model =
-    Html.nav [ class "navbar navbar-expand-lg navbar-dark bg-dark" ]
-        [ div [ class "navbar-brand" ] [ text <| Maybe.withDefault "" model.username ]
-        , div [ class "navbar-nav" ] [ Html.a [ class "nav-item nav-link", onClick Salir ] [ text "Salir" ] ]
-        ]
-
-
-
--- Encoders --
-
-
-credentialsEncoder : Model -> Encode.Value
-credentialsEncoder model =
-    Encode.object
-        [ ( "username", Encode.string model.usernameInput )
-        , ( "password", Encode.string model.passwordInput )
-        ]
-
-
-crearUsuarioEncoder : UsuarioCrear -> Encode.Value
-crearUsuarioEncoder usr =
-    Encode.object
-        [ ( "usuario", Encode.string usr.usuario )
-        , ( "grupo", Encode.string usr.grupo )
-        , ( "palabraClave", Encode.string usr.palabraClave )
-        , ( "correoElectronico", Encode.string usr.correoElectronico )
-        ]
-
-
-type alias Credentials =
-    { username : Maybe String
-    , grupo : Maybe String
-    , authorization : Maybe String
-    }
-
-
-decodeCredentials : Decode.Decoder Credentials
-decodeCredentials =
-    Decode.map3 Credentials
-        (field "username" (Decode.nullable Decode.string))
-        (field "grupo" (Decode.nullable Decode.string))
-        (field "authorization" (Decode.nullable Decode.string))
-
-
-decodeUsuario : Decode.Decoder Usuario
-decodeUsuario =
-    decode Usuario
-        |> required "id" Decode.string
-        |> required "usuario" Decode.string
-        |> required "correoElectronico" Decode.string
-        |> required "grupo" Decode.string
-        |> required "fechaCreacion" Decode.string
-
-
-
--- Http --
-
-
-sendCredentials : Model -> Cmd Msg
-sendCredentials model =
-    let
-        server =
-            "http://localhost:8070/login"
-    in
-        Http.send AutenticarServer <|
-            Http.request
-                { method = "POST"
-                , headers =
-                    [ Http.header "Content-Type" "application/json"
-                    ]
-                , url = server
-                , body = (credentialsEncoder model |> Http.jsonBody)
-                , expect = Http.expectJson decodeCredentials
-                , timeout = Nothing
-                , withCredentials = False
-                }
-
-
-solicitarUsuarios : Model -> Cmd Msg
-solicitarUsuarios model =
-    let
-        server =
-            "http://localhost:8070/usuarios"
-    in
-        Http.send SolicitarUsuariosHttp <|
-            Http.request
-                { method = "GET"
-                , headers =
-                    [ Http.header "Authorization" (Maybe.withDefault "" model.authorization)
-                    , Http.header "Content-Type" "application/json"
-                    ]
-                , url = server
-                , body = Http.emptyBody
-                , expect = Http.expectJson (Decode.list decodeUsuario)
-                , timeout = Nothing
-                , withCredentials = False
-                }
-
-
-crearUsuario : Model -> Cmd Msg
-crearUsuario model =
-    let
-        server =
-            "http://localhost:8070/usuarios"
-    in
-        Http.send EnviarCrearUsuarioHttp <|
-            Http.request
-                { method = "POST"
-                , headers =
-                    [ Http.header "Authorization" (Maybe.withDefault "" model.authorization)
-                    , Http.header "Content-Type" "application/json"
-                    ]
-                , url = server
-                , body = crearUsuarioEncoder model.usuarioCrear |> Http.jsonBody
-                , expect = Http.expectJson Decode.string
-                , timeout = Nothing
-                , withCredentials = False
-                }
-
-
-crearPaciente : Model -> Cmd Msg
-crearPaciente model =
-    let
-        server =
-            "http://localhost:8070/perfiles"
-    in
-        Http.send EnviarCrearPacienteHttp <|
-            Http.request
-                { method = "POST"
-                , headers =
-                    [ Http.header "Authorization" (Maybe.withDefault "" model.authorization)
-                    , Http.header "Content-Type" "application/json"
-                    ]
-                , url = server
-                , body = encodePaciente model.pacienteCrear |> Http.jsonBody
-                , expect = Http.expectJson Decode.string
-                , timeout = Nothing
-                , withCredentials = False
-                }
-
-
-buscarPacientes : Model -> Cmd Msg
-buscarPacientes model =
-    let
-        server =
-            "http://localhost:8070/perfiles?nombres=" ++ model.pacienteBuscar.nombres
-    in
-        Http.send EnviarBuscarPacienteHttp <|
-            Http.request
-                { method = "GET"
-                , headers =
-                    [ Http.header "Authorization" (Maybe.withDefault "" model.authorization)
-                    , Http.header "Content-Type" "application/json"
-                    ]
-                , url = server
-                , body = Http.emptyBody
-                , expect = Http.expectJson (Decode.list decodePaciente)
-                , timeout = Nothing
-                , withCredentials = False
-                }
-
-
-
----- PROGRAM ----
--- Routing
-
-
-type Route
-    = AdminRoute
-    | MedicoRoute String
-    | LoginRoute
-    | NotFoundRoute
-
-
-matchers : Parser (Route -> a) a
-matchers =
-    oneOf
-        [ map LoginRoute top
-        , map AdminRoute (s "admin")
-        , map MedicoRoute (s "medico" </> string)
-        ]
-
-
-parseLocation : Location -> Route
-parseLocation location =
-    case (parseHash matchers location) of
-        Just route ->
-            route
-
-        Nothing ->
-            NotFoundRoute
-
-
-main : Program Never Model Msg
+main : Program Decode.Value Model Msg
 main =
-    Navigation.program OnLocationChange
+    Navigation.programWithFlags OnLocationChange
         { view = view
         , init = init
         , update = update
-        , subscriptions = subscriptions
+        , subscriptions = \_ -> Sub.none
         }
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ Ports.getSession decodeValue
-        ]
-
-
-decodeValue : Decode.Value -> Msg
-decodeValue x =
-    let
-        result =
-            Decode.decodeValue decodeCredentials x
-    in
-        case result of
-            Ok cred ->
-                SetCredentials cred
-
-            Err _ ->
-                Salir
-
-
-getTime : Cmd Msg
-getTime =
-    Task.perform DefinirFechaInicioConsulta Date.now
-
-
-formatDate date =
-    let
-        yy =
-            year date |> toString |> agregarZero
-
-        mm =
-            formatoMes date
-
-        dd =
-            day date |> toString |> agregarZero
-
-        hh =
-            hour date |> toString |> agregarZero
-
-        min =
-            minute date |> toString |> agregarZero
-
-        ss =
-            second date |> toString |> agregarZero
-    in
-        (String.join "-" [ yy, mm, dd ]) ++ "T" ++ (String.join ":" [ hh, min, ss ]) ++ "-05:00"
-
-
-agregarZero : String -> String
-agregarZero str =
-    if String.length str == 1 then
-        "0" ++ str
-    else
-        str
-
-
-formatoMes : Date -> String
-formatoMes date =
-    case month date of
-        Jan ->
-            "01"
-
-        Feb ->
-            "02"
-
-        Mar ->
-            "03"
-
-        Apr ->
-            "04"
-
-        May ->
-            "05"
-
-        Jun ->
-            "06"
-
-        Jul ->
-            "07"
-
-        Aug ->
-            "08"
-
-        Sep ->
-            "09"
-
-        Oct ->
-            "10"
-
-        Nov ->
-            "11"
-
-        Dec ->
-            "12"
+    Sub.none

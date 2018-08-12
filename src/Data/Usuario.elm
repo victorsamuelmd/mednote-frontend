@@ -60,3 +60,10 @@ decodeUsuario =
         |> Decode.required "correoElectronico" JsDecode.string
         |> Decode.required "grupo" JsDecode.string
         |> Decode.required "fechaCreacion" JsDecode.string
+
+
+encodeUsuarioEditar usr =
+    Encode.object
+        [ ( "grupo", Encode.string usr.grupo )
+        , ( "correoElectronico", Encode.string usr.correoElectronico )
+        ]
