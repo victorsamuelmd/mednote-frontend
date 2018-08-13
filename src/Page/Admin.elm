@@ -3,7 +3,7 @@ module Page.Admin exposing (..)
 import Html exposing (Html, text, div, input, label, button, a, span, h2, p)
 import Html.Attributes exposing (src, class, type_, value, name, defaultValue)
 import Html.Events exposing (onInput, onClick)
-import Json.Decode as Decode exposing (field)
+import Data.Session exposing (..)
 import Http
 import Request.Admin
 import Data.Usuario exposing (..)
@@ -61,14 +61,14 @@ type Msg
     | VerListaUsuarios
 
 
-update : Credentials -> Msg -> Model -> ( Model, Cmd Msg )
+update : Session -> Msg -> Model -> ( Model, Cmd Msg )
 update session action model =
     case action of
         NoOp _ ->
             model ! []
 
         SolicitarUsuarios ->
-            ( model, Request.Admin.solicitarUsuarios session.authorization SolicitarUsuariosHttp )
+            ( model, Request.Admin.solicitarUsuarios session.autorizacion SolicitarUsuariosHttp )
 
         SolicitarUsuariosHttp (Ok listaUsuarios) ->
             ( { model | listaUsuarios = listaUsuarios }
@@ -121,7 +121,7 @@ update session action model =
         EnviarCrearUsuario ->
             ( model
             , Request.Admin.crearUsuario
-                { authorization = session.authorization, usuarioCrear = model.usuarioCrear }
+                { autorizacion = session.autorizacion, usuarioCrear = model.usuarioCrear }
                 EnviarCrearUsuarioHttp
             )
 
@@ -139,12 +139,12 @@ update session action model =
         EnviarEditarUsuario usr ->
             ( model
             , Request.Admin.editar
-                { authorization = "", usuario = usr }
+                { autorizacion = session.autorizacion, usuario = usr }
                 EnviarEditarUsuarioHttp
             )
 
         EnviarEditarUsuarioHttp (Ok id) ->
-            ( { model | vista = ListaUsuarioVista }, Request.Admin.solicitarUsuarios session.authorization SolicitarUsuariosHttp )
+            ( { model | vista = ListaUsuarioVista }, Request.Admin.solicitarUsuarios session.autorizacion SolicitarUsuariosHttp )
 
         EnviarEditarUsuarioHttp (Err err) ->
             ( model, Cmd.none )
@@ -325,18 +325,3 @@ viewUsers usuarios =
 
 
 -- Encoders --
-
-
-type alias Credentials =
-    { username : String
-    , grupo : String
-    , authorization : String
-    }
-
-
-decodeCredentials : Decode.Decoder Credentials
-decodeCredentials =
-    Decode.map3 Credentials
-        (field "username" (Decode.string))
-        (field "grupo" (Decode.string))
-        (field "authorization" (Decode.string))

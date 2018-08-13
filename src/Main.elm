@@ -11,7 +11,9 @@ import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 import Http
 import HttpBuilder
 import Ports
+import Data.Session exposing (..)
 import Page.HistoriaUrgencias
+import Page.Paciente as Pacientes
 import Data.HistoriaUrgencias exposing (..)
 import Data.Paciente exposing (..)
 import Request.HistoriaUrgencias
@@ -25,14 +27,11 @@ import Router exposing (..)
 ---- MODEL ----
 
 
-type State
-    = Admin Admin.Model
-    | Autenticar Autenticar.Model
+type Model
+    = Autenticar Autenticar.Model
+    | Pacientes Session Pacientes.Model
+    | Admin Session Admin.Model
     | NotFound
-
-
-type alias Model =
-    { session : Maybe Admin.Credentials, pageState : State }
 
 
 init : Decode.Value -> Location -> ( Model, Cmd Msg )
@@ -41,45 +40,54 @@ init val location =
         currentRoute =
             parseLocation location
 
-        session =
-            decodeSession val
+        maybeSession =
+            decodeSessionVal val
     in
-        case ( currentRoute, session ) of
-            ( LoginRoute, Nothing ) ->
-                ( { session = Nothing, pageState = Autenticar Autenticar.inicial }, Cmd.none )
+        case maybeSession of
+            Just session ->
+                setPage session currentRoute
 
-            ( _, Nothing ) ->
-                ( { pageState = Autenticar Autenticar.inicial, session = Nothing }
-                , Cmd.batch [ newUrl "/" ]
+            Nothing ->
+                ( Autenticar Autenticar.inicial, Cmd.none )
+
+
+setPage : Session -> Route -> ( Model, Cmd Msg )
+setPage session route =
+    case route of
+        AdminRoute ->
+            ( Admin session Admin.inicial
+            , Cmd.map AdminMsg
+                (Request.Admin.solicitarUsuarios
+                    session.autorizacion
+                    Admin.SolicitarUsuariosHttp
                 )
+            )
 
-            ( AdminRoute, Just session ) ->
-                ( { pageState = Admin Admin.inicial, session = Just session }
-                , Cmd.batch
-                    [ Cmd.map OriginalMsg <|
-                        Request.Admin.solicitarUsuarios
-                            session.authorization
-                            Admin.SolicitarUsuariosHttp
-                    ]
-                )
+        MedicoRoute string ->
+            ( Pacientes session Pacientes.init, Cmd.none )
 
-            _ ->
-                ( { pageState = Autenticar Autenticar.inicial, session = Nothing }
-                , Cmd.batch [ newUrl "/" ]
-                )
+        PacientesRoute ->
+            ( Pacientes session Pacientes.init, Cmd.none )
+
+        LoginRoute ->
+            ( Autenticar Autenticar.inicial, Cmd.none )
+
+        NotFoundRoute ->
+            ( Autenticar Autenticar.inicial, Cmd.none )
 
 
-decodeSession val =
-    Decode.decodeValue Admin.decodeCredentials val
+decodeSessionVal val =
+    Decode.decodeValue decodeSession val
         |> Result.toMaybe
 
 
 type Msg
     = OnLocationChange Location
-    | OriginalMsg Admin.Msg
+    | AdminMsg Admin.Msg
     | AutenticarMsg Autenticar.Msg
+    | PacientesMsg Pacientes.Msg
     | EnviarAutenticar
-    | EnviarAutenticarHttp (Result Http.Error Admin.Credentials)
+    | EnviarAutenticarHttp (Result Http.Error Session)
     | Salir
 
 
@@ -87,15 +95,10 @@ type Msg
 ---- UPDATE ----
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    updatePage model.pageState msg model
-
-
 enviarAutenticar cred =
     HttpBuilder.post "http://localhost:8070/login"
         |> HttpBuilder.withJsonBody (credEncoder cred)
-        |> HttpBuilder.withExpect (Http.expectJson Admin.decodeCredentials)
+        |> HttpBuilder.withExpect (Http.expectJson decodeSession)
         |> HttpBuilder.send EnviarAutenticarHttp
 
 
@@ -106,108 +109,41 @@ credEncoder model =
         ]
 
 
-updatePage : State -> Msg -> Model -> ( Model, Cmd Msg )
-updatePage state msg model =
-    case ( msg, state ) of
-        ( EnviarAutenticar, Autenticar subModel ) ->
-            ( model, enviarAutenticar subModel )
-
-        ( EnviarAutenticarHttp (Ok cred), Autenticar subModel ) ->
-            ( { model | session = Just cred }
-            , Cmd.batch
-                [ newUrl "#admin"
-                , Ports.storeSession cred.authorization
-                ]
-            )
-
-        ( EnviarAutenticarHttp (Err err), Autenticar subModel ) ->
-            ( { model
-                | pageState =
-                    Autenticar
-                        { subModel | error = Just "Usuario o palabra clave invalida" }
-              }
-            , Cmd.none
-            )
-
-        ( OriginalMsg msg, Admin subModel ) ->
-            case model.session of
-                Just session ->
-                    let
-                        ( subM, subCmd ) =
-                            Admin.update session msg subModel
-                    in
-                        ( { model | pageState = Admin subM }, Cmd.map OriginalMsg subCmd )
-
-                Nothing ->
-                    ( model, Cmd.none )
-
-        ( AutenticarMsg msg, Autenticar subModel ) ->
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case ( msg, model ) of
+        ( AutenticarMsg msg, Autenticar autenticarModel ) ->
             let
-                subM =
-                    Autenticar.update msg subModel
+                newModel =
+                    Autenticar.update msg autenticarModel
             in
-                ( { model | pageState = Autenticar subM }, Cmd.none )
+                ( Autenticar newModel, Cmd.none )
 
-        ( OnLocationChange location, Admin subModel ) ->
-            case model.session of
-                Just session ->
-                    let
-                        loc =
-                            parseLocation location
+        ( EnviarAutenticar, Autenticar autenticarModel ) ->
+            ( Autenticar autenticarModel, enviarAutenticar autenticarModel )
 
-                        inicialOriginal =
-                            Admin.inicial
-                    in
-                        case loc of
-                            AdminRoute ->
-                                ( { model | pageState = Admin subModel }
-                                , Cmd.map OriginalMsg <|
-                                    Request.Admin.solicitarUsuarios
-                                        session.authorization
-                                        Admin.SolicitarUsuariosHttp
-                                )
+        ( EnviarAutenticarHttp (Ok session), _ ) ->
+            ( Pacientes session Pacientes.init, Ports.storeSession session.autorizacion )
 
-                            _ ->
-                                ( model, Cmd.none )
+        ( EnviarAutenticarHttp (Err err), Autenticar autenticarModel ) ->
+            ( Autenticar { autenticarModel | error = Just "Error" }, Cmd.none )
 
-                Nothing ->
-                    ( model, Cmd.none )
-
-        ( OnLocationChange location, _ ) ->
+        ( PacientesMsg msg, Pacientes session pacientesModel ) ->
             let
-                loc =
-                    parseLocation location
+                ( newModel, subCmd ) =
+                    Pacientes.update msg pacientesModel
             in
-                case loc of
-                    AdminRoute ->
-                        case model.session of
-                            Just session ->
-                                ( { model | pageState = Admin Admin.inicial }
-                                , Cmd.map OriginalMsg <|
-                                    Request.Admin.solicitarUsuarios
-                                        session.authorization
-                                        Admin.SolicitarUsuariosHttp
-                                )
+                ( Pacientes session newModel, Cmd.map PacientesMsg subCmd )
 
-                            Nothing ->
-                                ( model, newUrl "/" )
-
-                    LoginRoute ->
-                        ( { model | pageState = Autenticar Autenticar.inicial }, Cmd.none )
-
-                    NotFoundRoute ->
-                        ( { model | pageState = NotFound }, Cmd.none )
-
-                    _ ->
-                        ( model, Cmd.none )
+        ( AdminMsg msg, Admin session adminModel ) ->
+            let
+                ( newModel, subCmd ) =
+                    Admin.update session msg adminModel
+            in
+                ( Admin session newModel, Cmd.map AdminMsg subCmd )
 
         ( Salir, _ ) ->
-            ( { model
-                | session = Nothing
-                , pageState = Autenticar Autenticar.inicial
-              }
-            , Cmd.batch [ Ports.toJs "salir", newUrl "/" ]
-            )
+            ( Autenticar Autenticar.inicial, Cmd.batch [ newUrl "/", Ports.toJs "salir" ] )
 
         ( _, _ ) ->
             ( model, Cmd.none )
@@ -254,27 +190,31 @@ navBar usuario =
 
 view : Model -> Html Msg
 view model =
-    case model.pageState of
-        Admin subModel ->
-            div []
-                [ navBar <| Maybe.withDefault "" (Maybe.map .username model.session)
-                , Admin.view subModel
-                    |> Html.map OriginalMsg
-                ]
-
-        Autenticar subModel ->
+    case model of
+        Autenticar modelAutenticar ->
             div [ class "hero is-success is-fullheight" ]
                 [ div [ class "hero-body" ]
                     [ div [ class "container has-text-centered" ]
                         [ Html.h3 [ class "title has-text-gray" ] [ text "MedNote" ]
                         , div [ class "column is-4 is-offset-4" ]
                             [ div [ class "box" ]
-                                [ Autenticar.view subModel |> Html.map AutenticarMsg
+                                [ Autenticar.view modelAutenticar |> Html.map AutenticarMsg
                                 , Html.a [ class "button is-primary is-large is-fullwidth is-block", onClick EnviarAutenticar ] [ text "Autenticar" ]
                                 ]
                             ]
                         ]
                     ]
+                ]
+
+        Pacientes session modelPacientes ->
+            Pacientes.view modelPacientes
+                |> Html.map PacientesMsg
+
+        Admin session modelAdmin ->
+            div []
+                [ navBar session.usuario
+                , Admin.view modelAdmin
+                    |> Html.map AdminMsg
                 ]
 
         NotFound ->

@@ -5,6 +5,7 @@ import HttpBuilder
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Data.Usuario exposing (..)
+import Request.ServerHelper exposing (serverUrl)
 
 
 solicitarUsuarios :
@@ -14,7 +15,7 @@ solicitarUsuarios :
 solicitarUsuarios str msg =
     let
         server =
-            "http://localhost:8070/usuarios"
+            serverUrl ++ "/usuarios"
     in
         Http.send msg <|
             Http.request
@@ -32,35 +33,25 @@ solicitarUsuarios str msg =
 
 
 crearUsuario :
-    { a | authorization : String, usuarioCrear : UsuarioCrear }
+    { a | autorizacion : String, usuarioCrear : UsuarioCrear }
     -> (Result Http.Error String -> msg)
     -> Cmd msg
-crearUsuario model msg =
-    let
-        server =
-            "http://localhost:8070/usuarios"
-    in
-        Http.send msg <|
-            Http.request
-                { method = "POST"
-                , headers =
-                    [ Http.header "Authorization" model.authorization
-                    , Http.header "Content-Type" "application/json"
-                    ]
-                , url = server
-                , body = crearUsuarioEncoder model.usuarioCrear |> Http.jsonBody
-                , expect = Http.expectJson Decode.string
-                , timeout = Nothing
-                , withCredentials = False
-                }
+crearUsuario { autorizacion, usuarioCrear } msg =
+    HttpBuilder.post (serverUrl ++ "/usuarios")
+        |> HttpBuilder.withJsonBody (crearUsuarioEncoder usuarioCrear)
+        |> HttpBuilder.withExpectString
+        |> HttpBuilder.withHeader "Authorization" autorizacion
+        |> HttpBuilder.withHeader "Content-Type" "application/json"
+        |> HttpBuilder.send msg
 
 
 editar :
-    { a | authorization : String, usuario : Usuario }
+    { a | autorizacion : String, usuario : Usuario }
     -> (Result Http.Error String -> msg)
     -> Cmd msg
-editar record msg =
-    HttpBuilder.put ("http://localhost:8070/usuarios/" ++ record.usuario.id)
-        |> HttpBuilder.withJsonBody (encodeUsuarioEditar record.usuario)
+editar { autorizacion, usuario } msg =
+    HttpBuilder.put (serverUrl ++ "/usuarios/" ++ usuario.id)
+        |> HttpBuilder.withJsonBody (encodeUsuarioEditar usuario)
         |> HttpBuilder.withExpect (Http.expectString)
+        |> HttpBuilder.withHeader "Authorization" autorizacion
         |> HttpBuilder.send msg
