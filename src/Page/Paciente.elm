@@ -1,4 +1,4 @@
-module Page.Paciente exposing (..)
+module Page.Paciente exposing (Model, Msg, init, update, view)
 
 import Html exposing (..)
 import Html.Events exposing (..)
@@ -7,16 +7,16 @@ import Data.HistoriaUrgencias exposing (..)
 import Data.Paciente exposing (Paciente)
 import Form exposing (Form)
 import Form.Value as Value exposing (Value)
-import Form.View
+import Page.BulmaForm as Bulma
 
 
 type Model
-    = FillingForm (Form.View.Model Values)
+    = FillingForm (Bulma.Model Values)
 
 
 type Msg
-    = FormChanged (Form.View.Model Values)
-    | PacienteListo String String String String String String String String String String String String
+    = FormChanged (Bulma.Model Values)
+    | PacienteListo Output
 
 
 type alias Values =
@@ -65,7 +65,7 @@ init =
     , residenciaBarrio = Value.blank
     , residenciaDireccion = Value.blank
     }
-        |> Form.View.idle
+        |> Bulma.idle
         |> FillingForm
 
 
@@ -77,11 +77,11 @@ update msg model =
                 FillingForm _ ->
                     ( FillingForm newForm, Cmd.none )
 
-        PacienteListo _ a _ _ _ _ _ _ _ _ _ _ ->
-            ( model, Cmd.none ) |> Debug.log (toString a)
+        PacienteListo output ->
+            ( model, Cmd.none ) |> Debug.log (toString output)
 
 
-form : Form Values Msg
+form : Form Values Output
 form =
     let
         nombresField =
@@ -101,11 +101,14 @@ form =
                 }
 
         generoField =
-            Form.textField
+            Form.radioField
                 { parser = Ok
                 , value = .genero
                 , update = \value values -> { values | genero = value }
-                , attributes = { label = "Genero", placeholder = "Genero" }
+                , attributes =
+                    { label = "Genero"
+                    , options = [ ( "F", "Femenino" ), ( "M", "Masculino" ), ( "I", "Indeterminado" ) ]
+                    }
                 }
 
         documentoNumeroField =
@@ -180,12 +183,12 @@ form =
                 , attributes = { label = "residenciaDireccion", placeholder = "Nombres" }
                 }
     in
-        Form.succeed (PacienteListo)
+        Form.succeed Output
             |> Form.append nombresField
             |> Form.append apellidosField
+            |> Form.append generoField
             |> Form.append documentoTipoField
             |> Form.append documentoNumeroField
-            |> Form.append generoField
             |> Form.append fechaNacimientoField
             |> Form.append telefonoField
             |> Form.append residenciaPaisField
@@ -199,14 +202,14 @@ view : Model -> Html Msg
 view model =
     case model of
         FillingForm formModel ->
-            Html.div []
-                [ Html.h1 [] [ Html.text "Signup" ]
-                , Form.View.asHtml
+            Html.div [ class "container" ]
+                [ Html.h2 [ class "title" ] [ Html.text "Crear Paciente" ]
+                , Bulma.asHtml
                     { onChange = FormChanged
                     , action = "Crear Paciente"
                     , loading = "Loading..."
-                    , validation = Form.View.ValidateOnSubmit
+                    , validation = Bulma.ValidateOnSubmit
                     }
-                    form
+                    (Form.map PacienteListo form)
                     formModel
                 ]

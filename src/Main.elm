@@ -73,7 +73,7 @@ setPage session route =
             ( Autenticar Autenticar.inicial, Cmd.none )
 
         NotFoundRoute ->
-            ( Autenticar Autenticar.inicial, Cmd.none )
+            ( NotFound, Cmd.none )
 
 
 decodeSessionVal val =
@@ -112,6 +112,23 @@ credEncoder model =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
+        ( OnLocationChange location, Pacientes session _ ) ->
+            let
+                currentRoute =
+                    parseLocation location
+            in
+                setPage session currentRoute
+
+        ( OnLocationChange location, Admin session _ ) ->
+            let
+                currentRoute =
+                    parseLocation location
+            in
+                setPage session currentRoute
+
+        ( OnLocationChange location, _ ) ->
+            ( NotFound, Navigation.load location.href ) |> Debug.log location.href
+
         ( AutenticarMsg msg, Autenticar autenticarModel ) ->
             let
                 newModel =
@@ -207,8 +224,11 @@ view model =
                 ]
 
         Pacientes session modelPacientes ->
-            Pacientes.view modelPacientes
-                |> Html.map PacientesMsg
+            div []
+                [ navBar session.usuario
+                , Pacientes.view modelPacientes
+                    |> Html.map PacientesMsg
+                ]
 
         Admin session modelAdmin ->
             div []
