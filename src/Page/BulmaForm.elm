@@ -591,17 +591,19 @@ form { onSubmit, action, loading, state, fields } =
 
 inputField : String -> TextFieldConfig msg -> Html msg
 inputField type_ { onChange, onBlur, disabled, value, error, showError, attributes } =
-    Html.input
-        ([ Events.onInput onChange
-         , Attributes.disabled disabled
-         , Attributes.value value
-         , Attributes.placeholder attributes.placeholder
-         , Attributes.type_ type_
-         , Attributes.class "input"
-         ]
-            |> withMaybeAttribute Events.onBlur onBlur
-        )
-        []
+    Html.div [ Attributes.class "control" ]
+        [ Html.input
+            ([ Events.onInput onChange
+             , Attributes.disabled disabled
+             , Attributes.value value
+             , Attributes.placeholder attributes.placeholder
+             , Attributes.type_ type_
+             , Attributes.class "input"
+             ]
+                |> withMaybeAttribute Events.onBlur onBlur
+            )
+            []
+        ]
         |> withLabelAndError attributes.label showError error
 
 
@@ -716,13 +718,17 @@ selectField { onChange, onBlur, disabled, value, error, showError, attributes } 
                 ]
                 [ Html.text ("-- " ++ attributes.placeholder ++ " --") ]
     in
-        Html.select
-            ([ Events.onInput onChange
-             , Attributes.disabled disabled
-             ]
-                |> withMaybeAttribute Events.onBlur onBlur
-            )
-            (placeholderOption :: List.map toOption attributes.options)
+        Html.div [ Attributes.class "control" ]
+            [ Html.div [ Attributes.class "select" ]
+                [ Html.select
+                    ([ Events.onInput onChange
+                     , Attributes.disabled disabled
+                     ]
+                        |> withMaybeAttribute Events.onBlur onBlur
+                    )
+                    (placeholderOption :: List.map toOption attributes.options)
+                ]
+            ]
             |> withLabelAndError attributes.label showError error
 
 

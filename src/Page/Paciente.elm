@@ -120,11 +120,23 @@ form =
                 }
 
         documentoTipoField =
-            Form.textField
+            Form.selectField
                 { parser = Ok
                 , value = .documentoTipo
                 , update = \value values -> { values | documentoTipo = value }
-                , attributes = { label = "Tipo Documento", placeholder = "Tipo Documento" }
+                , attributes =
+                    { label = "Tipo Documento"
+                    , placeholder = "Tipo Documento"
+                    , options =
+                        [ ( "CC", "Cedula de ciudadania" )
+                        , ( "CE", "Cedula de extranjeria" )
+                        , ( "TI", "Tarjeta de Identidad" )
+                        , ( "AS", "Adulto sin identificacion" )
+                        , ( "MS", "Menor sin identificacion" )
+                        , ( "PS", "Pasaporte" )
+                        , ( "RC", "Registro Civil" )
+                        ]
+                    }
                 }
 
         fechaNacimientoField =
@@ -148,7 +160,7 @@ form =
                 { parser = Ok
                 , value = .residenciaPais
                 , update = \value values -> { values | residenciaPais = value }
-                , attributes = { label = "residenciaPais", placeholder = "Nombres" }
+                , attributes = { label = "Pais de Residencia", placeholder = "Pais de Residencia" }
                 }
 
         residenciaDepartamentoField =
@@ -156,7 +168,7 @@ form =
                 { parser = Ok
                 , value = .residenciaDepartamento
                 , update = \value values -> { values | residenciaDepartamento = value }
-                , attributes = { label = "residenciaDepartamento", placeholder = "Nombres" }
+                , attributes = { label = "Departamento de Residencia", placeholder = "Departamento de Residencia" }
                 }
 
         residenciaMunicipioField =
@@ -164,7 +176,7 @@ form =
                 { parser = Ok
                 , value = .residenciaMunicipio
                 , update = \value values -> { values | residenciaMunicipio = value }
-                , attributes = { label = "residenciaMunicipio", placeholder = "Nombres" }
+                , attributes = { label = "Municipio de Residencia", placeholder = "Municipio de Residencia" }
                 }
 
         residenciaBarrioField =
@@ -172,7 +184,7 @@ form =
                 { parser = Ok
                 , value = .residenciaBarrio
                 , update = \value values -> { values | residenciaBarrio = value }
-                , attributes = { label = "residenciaBarrio", placeholder = "Nombres" }
+                , attributes = { label = "Barrio de Residencia", placeholder = "Barrio de Residencia" }
                 }
 
         residenciaDireccionField =
@@ -180,7 +192,7 @@ form =
                 { parser = Ok
                 , value = .residenciaDireccion
                 , update = \value values -> { values | residenciaDireccion = value }
-                , attributes = { label = "residenciaDireccion", placeholder = "Nombres" }
+                , attributes = { label = "Direccion de Residencia", placeholder = "Direccion de Residencia" }
                 }
     in
         Form.succeed Output
