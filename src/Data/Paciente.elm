@@ -3,6 +3,9 @@ module Data.Paciente exposing (..)
 import Json.Encode as Encode
 import Json.Decode as Decode exposing (field, Decoder)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
+import Date exposing (Date)
+import Helpers exposing (dateDecoder)
+import Date.Format as Format
 
 
 type alias Paciente =
@@ -13,8 +16,24 @@ type alias Paciente =
     , genero : String
     , documentoNumero : String
     , documentoTipo : String
-    , fechaNacimiento : String
-    , fechaUltimoIngreso : String
+    , fechaNacimiento : Date
+    , fechaUltimoIngreso : Date
+    , telefono : String
+    , residenciaPais : String
+    , residenciaDepartamento : String
+    , residenciaMunicipio : String
+    , residenciaBarrio : String
+    , residenciaDireccion : String
+    }
+
+
+type alias Output =
+    { nombres : String
+    , apellidos : String
+    , genero : String
+    , documentoNumero : String
+    , documentoTipo : String
+    , fechaNacimiento : Date
     , telefono : String
     , residenciaPais : String
     , residenciaDepartamento : String
@@ -33,8 +52,8 @@ initialPaciente =
     , genero = ""
     , documentoNumero = ""
     , documentoTipo = ""
-    , fechaNacimiento = ""
-    , fechaUltimoIngreso = ""
+    , fechaNacimiento = Date.fromTime (0)
+    , fechaUltimoIngreso = Date.fromTime (0)
     , telefono = ""
     , residenciaPais = ""
     , residenciaDepartamento = ""
@@ -54,8 +73,8 @@ decodePaciente =
         |> required "genero" Decode.string
         |> required "documentoNumero" Decode.string
         |> required "documentoTipo" Decode.string
-        |> required "fechaNacimiento" Decode.string
-        |> required "fechaUltimoIngreso" Decode.string
+        |> required "fechaNacimiento" dateDecoder
+        |> required "fechaUltimoIngreso" dateDecoder
         |> required "telefono" Decode.string
         |> required "residenciaPais" Decode.string
         |> required "residenciaDepartamento" Decode.string
@@ -74,7 +93,25 @@ encodePaciente model =
         , ( "genero", Encode.string model.genero )
         , ( "documentoNumero", Encode.string model.documentoNumero )
         , ( "documentoTipo", Encode.string model.documentoTipo )
-        , ( "fechaNacimiento", Encode.string model.fechaNacimiento )
+        , ( "fechaNacimiento", Encode.string <| Format.formatISO8601 model.fechaNacimiento )
+        , ( "telefono", Encode.string model.telefono )
+        , ( "residenciaPais", Encode.string model.residenciaPais )
+        , ( "residenciaDepartamento", Encode.string model.residenciaDepartamento )
+        , ( "residenciaMunicipio", Encode.string model.residenciaMunicipio )
+        , ( "residenciaBarrio", Encode.string model.residenciaBarrio )
+        , ( "residenciaDireccion", Encode.string model.residenciaDireccion )
+        ]
+
+
+encodeOutput : Output -> Encode.Value
+encodeOutput model =
+    Encode.object
+        [ ( "nombres", Encode.string model.nombres )
+        , ( "apellidos", Encode.string model.apellidos )
+        , ( "genero", Encode.string model.genero )
+        , ( "documentoNumero", Encode.string model.documentoNumero )
+        , ( "documentoTipo", Encode.string model.documentoTipo )
+        , ( "fechaNacimiento", Encode.string <| Format.formatISO8601 model.fechaNacimiento )
         , ( "telefono", Encode.string model.telefono )
         , ( "residenciaPais", Encode.string model.residenciaPais )
         , ( "residenciaDepartamento", Encode.string model.residenciaDepartamento )
@@ -121,12 +158,22 @@ definirDocumentoTipo a record =
 
 definirFechaNacimiento : String -> Paciente -> Paciente
 definirFechaNacimiento a record =
-    { record | fechaNacimiento = a }
+    case Date.fromString a of
+        Ok date ->
+            { record | fechaNacimiento = date }
+
+        Err _ ->
+            record
 
 
 definirFechaUltimoIngreso : String -> Paciente -> Paciente
 definirFechaUltimoIngreso a record =
-    { record | fechaUltimoIngreso = a }
+    case Date.fromString a of
+        Ok date ->
+            { record | fechaUltimoIngreso = date }
+
+        Err _ ->
+            record
 
 
 definirTelefono : String -> Paciente -> Paciente

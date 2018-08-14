@@ -1,24 +1,17 @@
 module Main exposing (..)
 
 import Navigation exposing (Location, newUrl)
-import UrlParser exposing (..)
 import Html exposing (Html, text, div, input, label, button, a, p, span, i)
 import Html.Attributes exposing (src, class, type_, value, name, defaultValue)
 import Html.Events exposing (onInput, onClick)
 import Json.Encode as Encode
 import Json.Decode as Decode exposing (field)
-import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 import Http
 import HttpBuilder
 import Ports
 import Data.Session exposing (..)
-import Page.HistoriaUrgencias
 import Page.Paciente as Pacientes
-import Data.HistoriaUrgencias exposing (..)
-import Data.Paciente exposing (..)
-import Request.HistoriaUrgencias
-import Request.Admin
-import Validate exposing (validate)
+import Request.Usuario as Usuario
 import Page.Autenticar as Autenticar
 import Page.Admin as Admin
 import Router exposing (..)
@@ -57,7 +50,7 @@ setPage session route =
         AdminRoute ->
             ( Admin session Admin.inicial
             , Cmd.map AdminMsg
-                (Request.Admin.solicitarUsuarios
+                (Usuario.solicitar
                     session.autorizacion
                     Admin.SolicitarUsuariosHttp
                 )
@@ -142,7 +135,7 @@ update msg model =
         ( PacientesMsg msg, Pacientes session pacientesModel ) ->
             let
                 ( newModel, subCmd ) =
-                    Pacientes.update msg pacientesModel
+                    Pacientes.update session msg pacientesModel
             in
                 ( Pacientes session newModel, Cmd.map PacientesMsg subCmd )
 

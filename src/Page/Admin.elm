@@ -5,8 +5,9 @@ import Html.Attributes exposing (src, class, type_, value, name, defaultValue)
 import Html.Events exposing (onInput, onClick)
 import Data.Session exposing (..)
 import Http
-import Request.Admin
+import Request.Usuario exposing (solicitar, editar, crear)
 import Data.Usuario exposing (..)
+import Date.Format as Format
 
 
 type AdminVista
@@ -68,7 +69,7 @@ update session action model =
             model ! []
 
         SolicitarUsuarios ->
-            ( model, Request.Admin.solicitarUsuarios session.autorizacion SolicitarUsuariosHttp )
+            ( model, solicitar session.autorizacion SolicitarUsuariosHttp )
 
         SolicitarUsuariosHttp (Ok listaUsuarios) ->
             ( { model | listaUsuarios = listaUsuarios }
@@ -120,7 +121,7 @@ update session action model =
 
         EnviarCrearUsuario ->
             ( model
-            , Request.Admin.crearUsuario
+            , crear
                 { autorizacion = session.autorizacion, usuarioCrear = model.usuarioCrear }
                 EnviarCrearUsuarioHttp
             )
@@ -138,13 +139,13 @@ update session action model =
 
         EnviarEditarUsuario usr ->
             ( model
-            , Request.Admin.editar
+            , editar
                 { autorizacion = session.autorizacion, usuario = usr }
                 EnviarEditarUsuarioHttp
             )
 
         EnviarEditarUsuarioHttp (Ok id) ->
-            ( { model | vista = ListaUsuarioVista }, Request.Admin.solicitarUsuarios session.autorizacion SolicitarUsuariosHttp )
+            ( { model | vista = ListaUsuarioVista }, solicitar session.autorizacion SolicitarUsuariosHttp )
 
         EnviarEditarUsuarioHttp (Err err) ->
             ( model, Cmd.none )
@@ -306,7 +307,7 @@ viewUsers usuarios =
                 [ Html.td [] [ text a.usuario ]
                 , Html.td [] [ text a.grupo ]
                 , Html.td [] [ text a.correoElectronico ]
-                , Html.td [] [ text a.fechaCreacion ]
+                , Html.td [] [ Format.format "%d %b %Y" a.fechaCreacion |> text ]
                 , Html.td [] [ Html.span [ class "icon" ] [ Html.i [ class "fas fa-edit" ] [] ] ]
                 ]
     in
@@ -321,7 +322,3 @@ viewUsers usuarios =
                     [ text "Crear Usuario" ]
                 ]
             ]
-
-
-
--- Encoders --

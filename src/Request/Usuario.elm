@@ -1,4 +1,4 @@
-module Request.Admin exposing (..)
+module Request.Usuario exposing (..)
 
 import Http
 import HttpBuilder
@@ -8,11 +8,11 @@ import Data.Usuario exposing (..)
 import Request.ServerHelper exposing (serverUrl)
 
 
-solicitarUsuarios :
+solicitar :
     String
     -> (Result Http.Error (List Usuario) -> msg)
     -> Cmd msg
-solicitarUsuarios str msg =
+solicitar str msg =
     let
         server =
             serverUrl ++ "/usuarios"
@@ -32,11 +32,11 @@ solicitarUsuarios str msg =
                 }
 
 
-crearUsuario :
+crear :
     { a | autorizacion : String, usuarioCrear : UsuarioCrear }
     -> (Result Http.Error String -> msg)
     -> Cmd msg
-crearUsuario { autorizacion, usuarioCrear } msg =
+crear { autorizacion, usuarioCrear } msg =
     HttpBuilder.post (serverUrl ++ "/usuarios")
         |> HttpBuilder.withJsonBody (crearUsuarioEncoder usuarioCrear)
         |> HttpBuilder.withExpectString

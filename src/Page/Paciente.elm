@@ -1,13 +1,15 @@
 module Page.Paciente exposing (Model, Msg, init, update, view)
 
 import Html exposing (..)
-import Html.Events exposing (..)
 import Html.Attributes exposing (..)
-import Data.HistoriaUrgencias exposing (..)
-import Data.Paciente exposing (Paciente)
 import Form exposing (Form)
 import Form.Value as Value exposing (Value)
 import Page.BulmaForm as Bulma
+import Data.Paciente exposing (Output)
+import Request.Paciente exposing (editar, crear, obtener, obtenerLista)
+import Http
+import Date
+import Data.Session exposing (Session)
 
 
 type Model
@@ -17,6 +19,7 @@ type Model
 type Msg
     = FormChanged (Bulma.Model Values)
     | PacienteListo Output
+    | PacienteListoHttp (Result Http.Error String)
 
 
 type alias Values =
@@ -35,22 +38,7 @@ type alias Values =
     }
 
 
-type alias Output =
-    { nombres : String
-    , apellidos : String
-    , genero : String
-    , documentoNumero : String
-    , documentoTipo : String
-    , fechaNacimiento : String
-    , telefono : String
-    , residenciaPais : String
-    , residenciaDepartamento : String
-    , residenciaMunicipio : String
-    , residenciaBarrio : String
-    , residenciaDireccion : String
-    }
-
-
+init : Model
 init =
     { nombres = Value.blank
     , apellidos = Value.blank
@@ -69,8 +57,8 @@ init =
         |> FillingForm
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Session -> Msg -> Model -> ( Model, Cmd Msg )
+update session msg model =
     case msg of
         FormChanged newForm ->
             case model of
@@ -78,7 +66,13 @@ update msg model =
                     ( FillingForm newForm, Cmd.none )
 
         PacienteListo output ->
-            ( model, Cmd.none ) |> Debug.log (toString output)
+            ( model, crear session output PacienteListoHttp )
+
+        PacienteListoHttp (Ok _) ->
+            ( model, Cmd.none )
+
+        PacienteListoHttp (Err _) ->
+            ( model, Cmd.none )
 
 
 form : Form Values Output
@@ -107,7 +101,11 @@ form =
                 , update = \value values -> { values | genero = value }
                 , attributes =
                     { label = "Genero"
-                    , options = [ ( "F", "Femenino" ), ( "M", "Masculino" ), ( "I", "Indeterminado" ) ]
+                    , options =
+                        [ ( "F", "Femenino" )
+                        , ( "M", "Masculino" )
+                        , ( "I", "Indeterminado" )
+                        ]
                     }
                 }
 
@@ -141,7 +139,7 @@ form =
 
         fechaNacimientoField =
             Form.textField
-                { parser = Ok
+                { parser = Date.fromString
                 , value = .fechaNacimiento
                 , update = \value values -> { values | fechaNacimiento = value }
                 , attributes = { label = "Fecha de Nacimiento", placeholder = "Fecha de Nacimiento" }
@@ -199,8 +197,8 @@ form =
             |> Form.append nombresField
             |> Form.append apellidosField
             |> Form.append generoField
-            |> Form.append documentoTipoField
             |> Form.append documentoNumeroField
+            |> Form.append documentoTipoField
             |> Form.append fechaNacimientoField
             |> Form.append telefonoField
             |> Form.append residenciaPaisField
