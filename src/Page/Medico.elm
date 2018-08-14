@@ -1,186 +1,116 @@
-module Main exposing (..)
+module Page.Medico exposing (Model, view, update, Msg, init)
+
+import Html exposing (Html)
+import Html.Attributes as Attributes
+import Html.Events as Events
+import Http
+import Helpers exposing (inputControl)
+import Data.Paciente exposing (Paciente)
+import Data.Session exposing (Session)
+import Request.Paciente exposing (obtenerLista)
+import Date.Format as Format
 
 
-vistaMedicos : Model -> Html Msg
-vistaMedicos model =
-    div []
-        [ viewNavBar model
-        , div [ class "container" ]
-            [ div [ class "row" ]
-                [ Html.aside [ class "col-md-3 nav flex-column" ]
-                    [ Html.a
-                        [ class "nav-item nav-link", Html.Attributes.href "#" ]
-                        [ text "Crear Paciente" ]
-                    , Html.a
-                        [ class "nav-item nav-link", Html.Attributes.href "#" ]
-                        [ text "Buscar Paciente" ]
-                    ]
-                ]
-            ]
-        ]
-
-
-vistaSeccionMedicos :
-    { a
-        | listaPacientes : List Paciente
-        , pacienteActual : Maybe Paciente
-        , historiaUrgencias : Data.HistoriaUrgencias.Model
+type alias Model =
+    { porNombres : String
+    , porApellidos : String
+    , porDocumentoNumero : String
+    , resultadoPacientes : List Paciente
     }
-    -> VistasMedicos
-    -> Html Msg
-vistaSeccionMedicos model page =
-    case page of
-        VistaCrearPaciente ->
-            Html.section [ class "col" ]
-                -- TODO
-                [ button [ class "btn btn-primary", onClick EnviarCrearPaciente ] [ text "Crear" ]
-                ]
 
-        VistaBuscarPacientes ->
-            Html.section [ class "col" ]
-                [ inputControl "Nombres" "buscarNombres" "" DefinirNombresBuscar
-                , inputControl "Apellidos" "buscarApellidos" "" DefinirApellidosBuscar
-                , inputControl "Documento" "buscarDocumento" "" DefinirDocumentoBuscar
-                , button [ onClick EnviarBuscarPaciente, class "btn btn-warning" ] [ text "Buscar" ]
-                , div [] <| List.map verPaciente model.listaPacientes
-                ]
 
-        VistaCrearHistoria ->
-            Html.section [ class "col" ]
-                [ Html.h3 [] [ text <| .nombres <| Maybe.withDefault initialPaciente model.pacienteActual ]
-                , Page.HistoriaUrgencias.view model.historiaUrgencias |> Html.map HistoriaUrgenciasMsg
-                , button [ onClick EnviarGuardarHistoria, class "btn btn-success" ] [ text "Guardar" ]
-                , div [] <| List.map (\a -> text a) (validate Page.HistoriaUrgencias.modelValidator model.historiaUrgencias)
-                ]
+init : Model
+init =
+    { porNombres = ""
+    , porApellidos = ""
+    , porDocumentoNumero = ""
+    , resultadoPacientes = []
+    }
+
+
+
+-- Update
+
+
+type Msg
+    = CambiarCampo Campo String
+    | BuscarPaciente
+    | ResultadoBusqueda (Result Http.Error (List Paciente))
+
+
+type alias ParametrosBusqueda a =
+    { a
+        | porNombres : String
+        , porApellidos : String
+        , porDocumentoNumero : String
+    }
+
+
+type Campo
+    = PorNombres
+    | PorApellidos
+    | PorDocumentoNumero
+
+
+cambiarCampo : String -> Campo -> ParametrosBusqueda a -> ParametrosBusqueda a
+cambiarCampo nuevo campo parametros =
+    case campo of
+        PorNombres ->
+            { parametros | porNombres = nuevo }
+
+        PorApellidos ->
+            { parametros | porApellidos = nuevo }
+
+        PorDocumentoNumero ->
+            { parametros | porDocumentoNumero = nuevo }
+
+
+update : Session -> Msg -> Model -> ( Model, Cmd Msg )
+update session msg model =
+    case msg of
+        CambiarCampo campo string ->
+            ( cambiarCampo string campo model, Cmd.none )
+
+        BuscarPaciente ->
+            ( model, obtenerLista session model ResultadoBusqueda )
+
+        ResultadoBusqueda (Ok resultado) ->
+            ( { model | resultadoPacientes = resultado }, Cmd.none )
+
+        ResultadoBusqueda (Err _) ->
+            ( model, Cmd.none )
+
+
+view : Model -> Html Msg
+view { resultadoPacientes } =
+    Html.section [ Attributes.class "column" ]
+        [ inputControl "Nombres" "buscarNombres" "" Nothing (CambiarCampo PorNombres)
+        , inputControl "Apellidos" "buscarApellidos" "" Nothing (CambiarCampo PorApellidos)
+        , inputControl "Documento" "buscarDocumento" "" Nothing (CambiarCampo PorDocumentoNumero)
+        , Html.button [ Attributes.class "button is-primary", Events.onClick BuscarPaciente ] [ Html.text "Buscar" ]
+        , Html.div [ Attributes.class "container" ] <| List.map verPaciente resultadoPacientes
+        ]
 
 
 verPaciente : Paciente -> Html Msg
 verPaciente pct =
-    div [ class "card" ]
-        [ div [ class "card-header" ] [ text <| pct.nombres ++ " ", text pct.apellidos ]
-        , div [ class "card-body" ]
-            [ Html.h5 [ class "card-title" ]
-                [ text <| pct.documentoTipo ++ " ", text pct.documentoNumero ]
-            , button [ class "btn btn-success", onClick (SeleccionarPacienteParaHistoria pct) ]
-                [ text "Iniciar Consulta Urgencias" ]
+    Html.div [ Attributes.class "column is-6" ]
+        [ Html.div [ Attributes.class "card" ]
+            [ Html.div [ Attributes.class "card-header" ]
+                [ Html.h4 [ Attributes.class "card-header-title" ]
+                    [ Html.text <| pct.nombres ++ " ", Html.text pct.apellidos ]
+                ]
+            , Html.div [ Attributes.class "card-content" ]
+                [ Html.h5 [ Attributes.class "subtitle" ]
+                    [ Html.text <| pct.documentoTipo ++ " ", Html.text pct.documentoNumero ]
+                , Html.p [] [ Html.text <| "Fecha de Nacimiento: " ++ Format.format "%Y/%m/%d" pct.fechaNacimiento ]
+                , Html.p [] [ Html.text <| "Genero: " ++ pct.genero ]
+                ]
+            , Html.div [ Attributes.class "card-footer" ]
+                [ Html.span [ Attributes.class "card-footer-item" ]
+                    [ Html.a [ Attributes.href <| "#editar/" ++ pct.id ] [ Html.text "Editar" ] ]
+                , Html.span [ Attributes.class "card-footer-item" ]
+                    [ Html.a [] [ Html.text "Iniciar Consulta" ] ]
+                ]
             ]
         ]
-
-
-crearPaciente : Model -> Cmd Msg
-crearPaciente { autorizacion, perfil } =
-    let
-        server =
-            "http://localhost:8070/perfiles"
-    in
-        Http.send EnviarCrearPacienteHttp <|
-            Http.request
-                { method = "POST"
-                , headers =
-                    [ Http.header "Authorization" (Maybe.withDefault "" autorizacion)
-                    , Http.header "Content-Type" "application/json"
-                    ]
-                , url = server
-                , body = encodePaciente perfil |> Http.jsonBody
-                , expect = Http.expectJson Decode.string
-                , timeout = Nothing
-                , withCredentials = False
-                }
-
-
-buscarPacientes : Model -> Cmd Msg
-buscarPacientes model =
-    let
-        server =
-            "http://localhost:8070/perfiles?nombres=" ++ model.pacienteBuscar.nombres
-    in
-        Http.send EnviarBuscarPacienteHttp <|
-            Http.request
-                { method = "GET"
-                , headers =
-                    [ Http.header "Authorization" (Maybe.withDefault "" model.authorization)
-                    , Http.header "Content-Type" "application/json"
-                    ]
-                , url = server
-                , body = Http.emptyBody
-                , expect = Http.expectJson (Decode.list decodePaciente)
-                , timeout = Nothing
-                , withCredentials = False
-                }
-
-
-getTime : Cmd Msg
-getTime =
-    Task.perform DefinirFechaInicioConsulta Date.now
-
-
-formatDate : Date -> String
-formatDate date =
-    let
-        yy =
-            year date |> toString |> agregarZero
-
-        mm =
-            formatoMes date
-
-        dd =
-            day date |> toString |> agregarZero
-
-        hh =
-            hour date |> toString |> agregarZero
-
-        min =
-            minute date |> toString |> agregarZero
-
-        ss =
-            second date |> toString |> agregarZero
-    in
-        (String.join "-" [ yy, mm, dd ]) ++ "T" ++ (String.join ":" [ hh, min, ss ]) ++ "-05:00"
-
-
-agregarZero : String -> String
-agregarZero str =
-    if String.length str == 1 then
-        "0" ++ str
-    else
-        str
-
-
-formatoMes : Date -> String
-formatoMes date =
-    case month date of
-        Jan ->
-            "01"
-
-        Feb ->
-            "02"
-
-        Mar ->
-            "03"
-
-        Apr ->
-            "04"
-
-        May ->
-            "05"
-
-        Jun ->
-            "06"
-
-        Jul ->
-            "07"
-
-        Aug ->
-            "08"
-
-        Sep ->
-            "09"
-
-        Oct ->
-            "10"
-
-        Nov ->
-            "11"
-
-        Dec ->
-            "12"

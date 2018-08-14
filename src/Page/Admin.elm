@@ -8,6 +8,7 @@ import Http
 import Request.Usuario exposing (solicitar, editar, crear)
 import Data.Usuario exposing (..)
 import Date.Format as Format
+import Helpers exposing (inputControl)
 
 
 type AdminVista
@@ -252,45 +253,6 @@ crearUsuarioCuestionario error =
                 , Html.a [ class "button is-danger", onClick VerListaUsuarios ] [ text "Cancelar" ]
                 ]
             ]
-        ]
-
-
-inputControl : String -> String -> String -> Maybe String -> (String -> Msg) -> Html Msg
-inputControl labelText nameText valueText err msg =
-    div [ class "field" ]
-        [ label [ class "label" ] [ text labelText ]
-        , div [ class "control" ]
-            [ input
-                [ type_ "text"
-                , class "input"
-                , name nameText
-                , Html.Attributes.id nameText
-                , defaultValue valueText
-                , onInput msg
-                ]
-                []
-            ]
-        , case err of
-            Just error ->
-                p [ class "help is-danger" ] [ text error ]
-
-            Nothing ->
-                text ""
-        ]
-
-
-textareaControl : String -> String -> String -> (String -> Msg) -> Html Msg
-textareaControl labelText nameText valueText msg =
-    div [ class "form-group" ]
-        [ label [] [ text labelText ]
-        , Html.textarea
-            [ class "form-control"
-            , name nameText
-            , Html.Attributes.id nameText
-            , defaultValue valueText
-            , onInput msg
-            ]
-            []
         ]
 
 

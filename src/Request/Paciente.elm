@@ -17,11 +17,20 @@ crear { autorizacion } output msg =
         |> HttpBuilder.send msg
 
 
-obtenerLista : Session -> (Result Http.Error (List Paciente.Paciente) -> msg) -> Cmd msg
-obtenerLista { autorizacion } msg =
+obtenerLista :
+    Session
+    -> { a | porNombres : String, porApellidos : String, porDocumentoNumero : String }
+    -> (Result Http.Error (List Paciente.Paciente) -> msg)
+    -> Cmd msg
+obtenerLista { autorizacion } { porNombres, porApellidos, porDocumentoNumero } msg =
     HttpBuilder.get (serverUrl ++ "/perfiles")
         |> HttpBuilder.withBody Http.emptyBody
         |> HttpBuilder.withExpectJson (Decode.list Paciente.decodePaciente)
+        |> HttpBuilder.withQueryParams
+            [ ( "nombres", porNombres )
+            , ( "apellidos", porApellidos )
+            , ( "documentoNumero", porDocumentoNumero )
+            ]
         |> withAuthorization autorizacion
         |> HttpBuilder.send msg
 

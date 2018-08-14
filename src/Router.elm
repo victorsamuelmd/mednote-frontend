@@ -6,8 +6,9 @@ import UrlParser exposing (oneOf, map, top, parseHash, s, (</>), string, Parser)
 
 type Route
     = AdminRoute
-    | MedicoRoute String
+    | MedicoRoute
     | PacientesRoute
+    | EditarPacienteRoute String
     | LoginRoute
     | NotFoundRoute
 
@@ -17,8 +18,9 @@ matchers =
     oneOf
         [ map LoginRoute top
         , map AdminRoute (s "admin")
-        , map MedicoRoute (s "medico" </> string)
+        , map MedicoRoute (s "medico")
         , map PacientesRoute (s "pacientes")
+        , map EditarPacienteRoute (s "editar" </> string)
         ]
 
 

@@ -10,11 +10,14 @@ import Http
 import HttpBuilder
 import Ports
 import Data.Session exposing (..)
-import Page.Paciente as Pacientes
 import Request.Usuario as Usuario
-import Page.Autenticar as Autenticar
-import Page.Admin as Admin
+import Request.Paciente as Paciente
 import Router exposing (..)
+import Page.Admin as Admin
+import Page.Medico as Medico
+import Page.Paciente as Pacientes
+import Page.Autenticar as Autenticar
+import Page.EditarPaciente as EditarPaciente
 
 
 ---- MODEL ----
@@ -24,6 +27,8 @@ type Model
     = Autenticar Autenticar.Model
     | Pacientes Session Pacientes.Model
     | Admin Session Admin.Model
+    | Medico Session Medico.Model
+    | EditarPaciente Session EditarPaciente.Model
     | NotFound
 
 
@@ -56,11 +61,17 @@ setPage session route =
                 )
             )
 
-        MedicoRoute string ->
-            ( Pacientes session Pacientes.init, Cmd.none )
+        MedicoRoute ->
+            ( Medico session Medico.init, Cmd.none )
 
         PacientesRoute ->
             ( Pacientes session Pacientes.init, Cmd.none )
+
+        EditarPacienteRoute id ->
+            ( EditarPaciente session EditarPaciente.init
+            , Cmd.map EditarPacienteMsg
+                (Paciente.obtener session id EditarPaciente.ResultadoObtenerPaciente)
+            )
 
         LoginRoute ->
             ( Autenticar Autenticar.inicial, Cmd.none )
@@ -69,6 +80,7 @@ setPage session route =
             ( NotFound, Cmd.none )
 
 
+decodeSessionVal : Decode.Value -> Maybe Session
 decodeSessionVal val =
     Decode.decodeValue decodeSession val
         |> Result.toMaybe
@@ -79,6 +91,8 @@ type Msg
     | AdminMsg Admin.Msg
     | AutenticarMsg Autenticar.Msg
     | PacientesMsg Pacientes.Msg
+    | MedicoMsg Medico.Msg
+    | EditarPacienteMsg EditarPaciente.Msg
     | EnviarAutenticar
     | EnviarAutenticarHttp (Result Http.Error Session)
     | Salir
@@ -88,6 +102,7 @@ type Msg
 ---- UPDATE ----
 
 
+enviarAutenticar : { a | palabraClave : String, usuario : String } -> Cmd Msg
 enviarAutenticar cred =
     HttpBuilder.post "http://localhost:8070/login"
         |> HttpBuilder.withJsonBody (credEncoder cred)
@@ -95,6 +110,7 @@ enviarAutenticar cred =
         |> HttpBuilder.send EnviarAutenticarHttp
 
 
+credEncoder : { a | palabraClave : String, usuario : String } -> Encode.Value
 credEncoder model =
     Encode.object
         [ ( "username", Encode.string model.usuario )
@@ -110,6 +126,14 @@ update msg model =
                 |> setPage session
 
         ( OnLocationChange location, Admin session _ ) ->
+            parseLocation location
+                |> setPage session
+
+        ( OnLocationChange location, Medico session _ ) ->
+            parseLocation location
+                |> setPage session
+
+        ( OnLocationChange location, EditarPaciente session _ ) ->
             parseLocation location
                 |> setPage session
 
@@ -145,6 +169,20 @@ update msg model =
                     Admin.update session msg adminModel
             in
                 ( Admin session newModel, Cmd.map AdminMsg subCmd )
+
+        ( MedicoMsg msg, Medico session medicoModel ) ->
+            let
+                ( newModel, subCmd ) =
+                    Medico.update session msg medicoModel
+            in
+                ( Medico session newModel, Cmd.map MedicoMsg subCmd )
+
+        ( EditarPacienteMsg msg, EditarPaciente session medicoModel ) ->
+            let
+                ( newModel, subCmd ) =
+                    EditarPaciente.update session msg medicoModel
+            in
+                ( EditarPaciente session newModel, Cmd.map EditarPacienteMsg subCmd )
 
         ( Salir, _ ) ->
             ( Autenticar Autenticar.inicial, Cmd.batch [ newUrl "/", Ports.toJs "salir" ] )
@@ -207,6 +245,20 @@ view model =
                 [ navBar session.usuario
                 , Admin.view modelAdmin
                     |> Html.map AdminMsg
+                ]
+
+        Medico session modelMedico ->
+            div []
+                [ navBar session.usuario
+                , Medico.view modelMedico
+                    |> Html.map MedicoMsg
+                ]
+
+        EditarPaciente session modelEditar ->
+            div []
+                [ navBar session.usuario
+                , EditarPaciente.view modelEditar
+                    |> Html.map EditarPacienteMsg
                 ]
 
         NotFound ->
