@@ -113,18 +113,12 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
         ( OnLocationChange location, Pacientes session _ ) ->
-            let
-                currentRoute =
-                    parseLocation location
-            in
-                setPage session currentRoute
+            parseLocation location
+                |> setPage session
 
         ( OnLocationChange location, Admin session _ ) ->
-            let
-                currentRoute =
-                    parseLocation location
-            in
-                setPage session currentRoute
+            parseLocation location
+                |> setPage session
 
         ( OnLocationChange location, _ ) ->
             ( NotFound, Navigation.load location.href ) |> Debug.log location.href
@@ -168,21 +162,6 @@ update msg model =
 
 
 ---- VIEW ----
-
-
-zeroOrInt : String -> Int
-zeroOrInt str =
-    Result.withDefault 0 <| String.toInt str
-
-
-oneOrInt : String -> Int
-oneOrInt str =
-    Result.withDefault 1 <| String.toInt str
-
-
-zeroOrFloat : String -> Float
-zeroOrFloat str =
-    Result.withDefault 0.0 <| String.toFloat str
 
 
 navBar : String -> Html Msg
