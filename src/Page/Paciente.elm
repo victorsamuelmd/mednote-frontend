@@ -1,16 +1,15 @@
 module Page.Paciente exposing (Model, Msg, init, update, view)
 
-import Html exposing (Html)
-import Html.Attributes as Attributes
+import Data.Paciente exposing (Output)
+import Data.Session exposing (Session)
 import Form exposing (Form)
 import Form.Value as Value exposing (Value)
-import Page.BulmaForm as Bulma
-import Data.Paciente exposing (Output)
-import Request.Paciente exposing (editar, crear, obtener, obtenerLista)
-import Page.PacienteForm exposing (form, Values)
+import Html exposing (Html)
+import Html.Attributes as Attributes
 import Http
-import Date
-import Data.Session exposing (Session)
+import Page.BulmaForm as Bulma
+import Page.PacienteForm exposing (Values, form)
+import Request.Paciente exposing (crear, editar, obtener, obtenerLista)
 
 
 type Model
@@ -46,9 +45,7 @@ update : Session -> Msg -> Model -> ( Model, Cmd Msg )
 update session msg model =
     case msg of
         FormChanged newForm ->
-            case model of
-                FillingForm _ ->
-                    ( FillingForm newForm, Cmd.none )
+            ( FillingForm newForm, Cmd.none )
 
         PacienteListo output ->
             ( model, crear session output PacienteListoHttp )

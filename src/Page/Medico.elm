@@ -1,14 +1,13 @@
-module Page.Medico exposing (Model, view, update, Msg, init)
+module Page.Medico exposing (Model, Msg, init, update, view)
 
+import Data.Paciente exposing (Paciente)
+import Data.Session exposing (Session)
+import Helpers exposing (inputControl)
 import Html exposing (Html)
 import Html.Attributes as Attributes
 import Html.Events as Events
 import Http
-import Helpers exposing (inputControl)
-import Data.Paciente exposing (Paciente)
-import Data.Session exposing (Session)
 import Request.Paciente exposing (obtenerLista)
-import Date.Format as Format
 
 
 type alias Model =

@@ -1,5 +1,5 @@
 import {
-  Main
+  Elm
 } from './Main.elm';
 import registerServiceWorker from './registerServiceWorker';
 
@@ -19,15 +19,17 @@ if (token) {
     grupo: session.grupo,
     autorizacion: token,
     id: session.id
-
   }
   console.log(obj);
 }
 
-var app = Main.embed(document.getElementById('root'), obj || null);
+var app = Elm.Main.init({
+  node: document.getElementById('root'),
+  flags: obj
+});
 
 registerServiceWorker();
-
+/*
 app.ports.toJs.subscribe(function(str) {
   switch (str) {
     case "salir":
@@ -36,7 +38,16 @@ app.ports.toJs.subscribe(function(str) {
   }
 });
 
+*/
 
 app.ports.storeSession.subscribe(function(user) {
   localStorage.setItem("token", user)
+  var session = parseJwt(token);
+  obj = {
+    usuario: session.usuario,
+    grupo: session.grupo,
+    autorizacion: token,
+    id: session.id
+  }
+  app.ports.gotSession.send(obj);
 });

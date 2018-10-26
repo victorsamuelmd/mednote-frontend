@@ -1,14 +1,25 @@
-module Page.Admin exposing (..)
+module Page.Admin exposing
+    ( AdminVista(..)
+    , Model
+    , Msg(..)
+    , VistasMedicos(..)
+    , adminVista
+    , crearUsuarioCuestionario
+    , editarUsuarioVista
+    , inicial
+    , update
+    , view
+    , viewUsers
+    )
 
-import Html exposing (Html, text, div, input, label, button, a, span, h2, p)
-import Html.Attributes exposing (src, class, type_, value, name, defaultValue)
-import Html.Events exposing (onInput, onClick)
 import Data.Session exposing (..)
-import Http
-import Request.Usuario exposing (solicitar, editar, crear)
 import Data.Usuario exposing (..)
-import Date.Format as Format
 import Helpers exposing (inputControl)
+import Html exposing (Html, a, button, div, h2, input, label, p, span, text)
+import Html.Attributes exposing (class, name, src, type_, value)
+import Html.Events exposing (onClick, onInput)
+import Http
+import Request.Usuario exposing (crear, editar, solicitar)
 
 
 type AdminVista
@@ -67,19 +78,18 @@ update : Session -> Msg -> Model -> ( Model, Cmd Msg )
 update session action model =
     case action of
         NoOp _ ->
-            model ! []
+            ( model, Cmd.none )
 
         SolicitarUsuarios ->
             ( model, solicitar session.autorizacion SolicitarUsuariosHttp )
 
         SolicitarUsuariosHttp (Ok listaUsuarios) ->
             ( { model | listaUsuarios = listaUsuarios }
-                |> Debug.log (toString listaUsuarios)
             , Cmd.none
             )
 
         SolicitarUsuariosHttp (Err err) ->
-            ( model |> Debug.log (toString err), Cmd.none )
+            ( model, Cmd.none )
 
         EditarUsuario usr ->
             ( { model | vista = EditarUsuarioVista usr }, Cmd.none )
@@ -164,7 +174,7 @@ update session action model =
                         nuevoUsuario =
                             { usuario | grupo = str }
                     in
-                        ( { model | vista = EditarUsuarioVista nuevoUsuario }, Cmd.none )
+                    ( { model | vista = EditarUsuarioVista nuevoUsuario }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -176,7 +186,7 @@ update session action model =
                         nuevoUsuario =
                             { usuario | correoElectronico = str }
                     in
-                        ( { model | vista = EditarUsuarioVista nuevoUsuario }, Cmd.none )
+                    ( { model | vista = EditarUsuarioVista nuevoUsuario }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -213,8 +223,8 @@ editarUsuarioVista usr =
             Nothing
             EditarCorreoUsr
         , div [ class "buttons" ]
-            [ a [ class "button is-primary", onClick (EnviarEditarUsuario usr) ] [ text "Guardar" ]
-            , a [ class "button is-danger", onClick VerListaUsuarios ] [ text "Cancelar" ]
+            [ button [ class "button is-primary", onClick (EnviarEditarUsuario usr) ] [ text "Guardar" ]
+            , button [ class "button is-danger", onClick VerListaUsuarios ] [ text "Cancelar" ]
             ]
         ]
 
@@ -269,18 +279,18 @@ viewUsers usuarios =
                 [ Html.td [] [ text a.usuario ]
                 , Html.td [] [ text a.grupo ]
                 , Html.td [] [ text a.correoElectronico ]
-                , Html.td [] [ Format.format "%d %b %Y" a.fechaCreacion |> text ]
+                , Html.td [] [ String.fromInt a.fechaCreacion |> text ]
                 , Html.td [] [ Html.span [ class "icon" ] [ Html.i [ class "fas fa-edit" ] [] ] ]
                 ]
     in
-        div []
-            [ Html.table [ class "table is-hoverable" ] <|
-                List.map viewUser usuarios
-            , div [ class "buttons" ]
-                [ Html.a
-                    [ class "button is-primary"
-                    , onClick IniciarCrearUsuario
-                    ]
-                    [ text "Crear Usuario" ]
+    div []
+        [ Html.table [ class "table is-hoverable" ] <|
+            List.map viewUser usuarios
+        , div [ class "buttons" ]
+            [ Html.button
+                [ class "button is-primary"
+                , onClick IniciarCrearUsuario
                 ]
+                [ text "Crear Usuario" ]
             ]
+        ]

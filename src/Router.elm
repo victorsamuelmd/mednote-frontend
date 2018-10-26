@@ -1,7 +1,7 @@
-module Router exposing (..)
+module Router exposing (Route(..), matchers, parseLocation)
 
-import Navigation exposing (Location)
-import UrlParser exposing (oneOf, map, top, parseHash, s, (</>), string, Parser)
+import Url
+import Url.Parser exposing ((</>), Parser, map, oneOf, parse, s, string, top)
 
 
 type Route
@@ -9,6 +9,7 @@ type Route
     | MedicoRoute
     | PacientesRoute
     | EditarPacienteRoute String
+    | UrgenciasRoute String
     | LoginRoute
     | NotFoundRoute
 
@@ -21,12 +22,13 @@ matchers =
         , map MedicoRoute (s "medico")
         , map PacientesRoute (s "pacientes")
         , map EditarPacienteRoute (s "editar" </> string)
+        , map UrgenciasRoute (s "urgencias" </> string)
         ]
 
 
-parseLocation : Location -> Route
-parseLocation location =
-    case (parseHash matchers location) of
+parseLocation : Url.Url -> Route
+parseLocation url =
+    case parse matchers url of
         Just route ->
             route
 

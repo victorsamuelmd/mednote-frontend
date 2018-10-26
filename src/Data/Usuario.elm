@@ -1,10 +1,19 @@
-module Data.Usuario exposing (..)
+module Data.Usuario exposing
+    ( Usuario
+    , UsuarioCrear
+    , crearUsuarioEncoder
+    , decodeUsuario
+    , definirCorreoElectronico
+    , definirGrupo
+    , definirPalabraClave
+    , definirUsuario
+    , encodeUsuarioEditar
+    )
 
-import Json.Decode.Pipeline as Decode
 import Json.Decode as JsDecode
+import Json.Decode.Pipeline as Decode
 import Json.Encode as Encode
-import Date exposing (Date)
-import Helpers exposing (dateDecoder)
+import Time
 
 
 type alias Usuario =
@@ -12,7 +21,7 @@ type alias Usuario =
     , usuario : String
     , correoElectronico : String
     , grupo : String
-    , fechaCreacion : Date
+    , fechaCreacion : Int
     }
 
 
@@ -56,12 +65,12 @@ crearUsuarioEncoder usr =
 
 decodeUsuario : JsDecode.Decoder Usuario
 decodeUsuario =
-    Decode.decode Usuario
+    JsDecode.succeed Usuario
         |> Decode.required "id" JsDecode.string
         |> Decode.required "usuario" JsDecode.string
         |> Decode.required "correoElectronico" JsDecode.string
         |> Decode.required "grupo" JsDecode.string
-        |> Decode.required "fechaCreacion" dateDecoder
+        |> Decode.required "fechaCreacion" JsDecode.int
 
 
 encodeUsuarioEditar usr =

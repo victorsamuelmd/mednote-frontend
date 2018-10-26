@@ -1,24 +1,9 @@
-module Helpers exposing (..)
+module Helpers exposing (inputControl, textareaControl)
 
-import Json.Decode as JsDecode
-import Date exposing (Date)
 import Html exposing (Html)
 import Html.Attributes as Attributes
 import Html.Events as Events
-
-
-dateDecoder : JsDecode.Decoder Date
-dateDecoder =
-    JsDecode.string
-        |> JsDecode.andThen
-            (\dateString ->
-                case (Date.fromString dateString) of
-                    Ok date ->
-                        JsDecode.succeed date
-
-                    Err errorString ->
-                        JsDecode.fail errorString
-            )
+import Json.Decode as JsDecode
 
 
 inputControl : String -> String -> String -> Maybe String -> (String -> msg) -> Html msg
@@ -31,7 +16,7 @@ inputControl labelText nameText valueText err msg =
                 , Attributes.class "input"
                 , Attributes.name nameText
                 , Attributes.id nameText
-                , Attributes.defaultValue valueText
+                , Attributes.value valueText
                 , Events.onInput msg
                 ]
                 []
@@ -53,7 +38,7 @@ textareaControl labelText nameText valueText msg =
             [ Attributes.class "form-control"
             , Attributes.name nameText
             , Attributes.id nameText
-            , Attributes.defaultValue valueText
+            , Attributes.value valueText
             , Events.onInput msg
             ]
             []

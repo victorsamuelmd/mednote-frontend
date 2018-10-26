@@ -1,10 +1,10 @@
-module Page.PacienteForm exposing (form, Values, prellenar)
+module Page.PacienteForm exposing (Values, form, prellenar)
 
+import Char
+import Data.Paciente exposing (Output, Paciente)
 import Form exposing (Form)
 import Form.Value as Value exposing (Value)
-import Data.Paciente exposing (Paciente, Output)
-import Date
-import Date.Format as Format
+import Time
 
 
 type alias Values =
@@ -36,7 +36,13 @@ form =
 
         apellidosField =
             Form.textField
-                { parser = Ok
+                { parser =
+                    \apellidos ->
+                        if String.length apellidos < 2 || String.any Char.isDigit apellidos then
+                            Result.Err "Debe contener al menos 2 caracteres y solo letras"
+
+                        else
+                            Result.Ok apellidos
                 , value = .apellidos
                 , update = \value values -> { values | apellidos = value }
                 , attributes = { label = "Apellidos", placeholder = "Apellidos" }
@@ -141,19 +147,19 @@ form =
                 , attributes = { label = "Direccion de Residencia", placeholder = "Direccion de Residencia" }
                 }
     in
-        Form.succeed Output
-            |> Form.append nombresField
-            |> Form.append apellidosField
-            |> Form.append generoField
-            |> Form.append documentoNumeroField
-            |> Form.append documentoTipoField
-            |> Form.append fechaNacimientoField
-            |> Form.append telefonoField
-            |> Form.append residenciaPaisField
-            |> Form.append residenciaDepartamentoField
-            |> Form.append residenciaMunicipioField
-            |> Form.append residenciaBarrioField
-            |> Form.append residenciaDireccionField
+    Form.succeed Output
+        |> Form.append nombresField
+        |> Form.append apellidosField
+        |> Form.append generoField
+        |> Form.append documentoNumeroField
+        |> Form.append documentoTipoField
+        |> Form.append fechaNacimientoField
+        |> Form.append telefonoField
+        |> Form.append residenciaPaisField
+        |> Form.append residenciaDepartamentoField
+        |> Form.append residenciaMunicipioField
+        |> Form.append residenciaBarrioField
+        |> Form.append residenciaDireccionField
 
 
 prellenar : Paciente -> Values

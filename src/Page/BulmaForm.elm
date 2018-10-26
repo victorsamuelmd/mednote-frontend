@@ -1,21 +1,4 @@
-module Page.BulmaForm
-    exposing
-        ( CheckboxFieldConfig
-        , CustomConfig
-        , FormConfig
-        , Model
-        , NumberFieldConfig
-        , RadioFieldConfig
-        , RangeFieldConfig
-        , SelectFieldConfig
-        , State(..)
-        , TextFieldConfig
-        , Validation(..)
-        , ViewConfig
-        , asHtml
-        , custom
-        , idle
-        )
+module Page.BulmaForm exposing (..)
 
 {-| This module provides helpers to render a [`Form`](Form#Form).
 If you just want to quickly render a [`Form`](Form#Form) as HTML, take a look at
@@ -613,6 +596,7 @@ textareaField { onChange, onBlur, disabled, value, error, showError, attributes 
         ([ Events.onInput onChange
          , Attributes.disabled disabled
          , Attributes.placeholder attributes.placeholder
+         , Attributes.class "textarea"
          ]
             |> withMaybeAttribute Events.onBlur onBlur
         )
@@ -781,7 +765,7 @@ errorToString : Error -> String
 errorToString error =
     case error of
         Error.RequiredFieldIsEmpty ->
-            "This field is required"
+            "Este campo es necesario."
 
         Error.ValidationFailed validationError ->
             validationError

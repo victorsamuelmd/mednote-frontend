@@ -1,11 +1,10 @@
-module Data.Paciente exposing (..)
+module Data.Paciente exposing (Output, Paciente, decodePaciente, definirApellidos, definirDocumentoNumero, definirDocumentoTipo, definirFechaNacimiento, definirFechaUltimoIngreso, definirGenero, definirId, definirNombres, definirResidenciaBarrio, definirResidenciaDepartamento, definirResidenciaDireccion, definirResidenciaMunicipio, definirResidenciaPais, definirTelefono, definirUsuarioId, encodeOutput, encodePaciente, initialPaciente)
 
-import Json.Encode as Encode
-import Json.Decode as Decode exposing (field, Decoder)
-import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
-import Date exposing (Date)
 import Helpers exposing (dateDecoder)
-import Date.Format as Format
+import Json.Decode as Decode exposing (Decoder, field)
+import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
+import Json.Encode as Encode
+import Time exposing (Time)
 
 
 type alias Paciente =
@@ -16,8 +15,8 @@ type alias Paciente =
     , genero : String
     , documentoNumero : String
     , documentoTipo : String
-    , fechaNacimiento : Date
-    , fechaUltimoIngreso : Date
+    , fechaNacimiento : Time
+    , fechaUltimoIngreso : Time
     , telefono : String
     , residenciaPais : String
     , residenciaDepartamento : String
@@ -33,7 +32,7 @@ type alias Output =
     , genero : String
     , documentoNumero : String
     , documentoTipo : String
-    , fechaNacimiento : Date
+    , fechaNacimiento : Time
     , telefono : String
     , residenciaPais : String
     , residenciaDepartamento : String
@@ -52,8 +51,8 @@ initialPaciente =
     , genero = ""
     , documentoNumero = ""
     , documentoTipo = ""
-    , fechaNacimiento = Date.fromTime (0)
-    , fechaUltimoIngreso = Date.fromTime (0)
+    , fechaNacimiento = Time.millisToPosix 0
+    , fechaUltimoIngreso = Time.millisToPosix 0
     , telefono = ""
     , residenciaPais = ""
     , residenciaDepartamento = ""
@@ -158,7 +157,7 @@ definirDocumentoTipo a record =
 
 definirFechaNacimiento : String -> Paciente -> Paciente
 definirFechaNacimiento a record =
-    case Date.fromString a of
+    case Time.Posix a of
         Ok date ->
             { record | fechaNacimiento = date }
 

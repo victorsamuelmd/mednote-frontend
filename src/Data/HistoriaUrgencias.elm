@@ -5,7 +5,7 @@ import Json.Decode as Decode exposing (field)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 
 
-type alias Model =
+type alias HistoriaUrgencias =
     { id : String
     , paciente : String
     , fechaInicio : String
@@ -48,7 +48,45 @@ type alias Model =
     }
 
 
-initialHistoriaUrgencias : Model
+type alias Output =
+    { admitidoPor : String
+    , registro : String
+    , origenAtencion : String
+    , motivoConsulta : String
+    , enfermedadActual : String
+    , antecedentesFamiliares : String
+    , antecedentesPersonales : String
+    , revisionSistemas : String
+    , respuestaOcular : Int
+    , respuestaVerbal : Int
+    , respuestaMotora : Int
+    , fuerzaSuperiorI : Int
+    , fuerzaSuperiorD : Int
+    , fuerzaInferiorI : Int
+    , fuerzaInferiorD : Int
+    , reflejosSuperiorI : String
+    , reflejosSuperiorD : String
+    , reflejosInferiorI : String
+    , reflejosInferiorD : String
+    , estadoGeneral : String
+    , tensionArterialSistolica : Int
+    , tensionArterialDiastolica : Int
+    , frecuenciaCardiaca : Int
+    , frecuenciaRespiratoria : Int
+    , temperatura : Float
+    , saturacionOxigeno : Int
+    , peso : Float
+    , talla : Float
+    , examenFisico : String
+    , analisisConducta : String
+    , diagnosticoPrincipal : String
+    , diagnosticoRelacionado1 : String
+    , diagnosticoRelacionado2 : String
+    , diagnosticoRelacionado3 : String
+    }
+
+
+initialHistoriaUrgencias : HistoriaUrgencias
 initialHistoriaUrgencias =
     { id = ""
     , paciente = ""
@@ -92,9 +130,9 @@ initialHistoriaUrgencias =
     }
 
 
-decodeHistoriaUrgencias : Decode.Decoder Model
+decodeHistoriaUrgencias : Decode.Decoder HistoriaUrgencias
 decodeHistoriaUrgencias =
-    decode Model
+    decode HistoriaUrgencias
         |> required "id" Decode.string
         |> required "paciente" Decode.string
         |> required "fechaInicio" Decode.string
@@ -136,7 +174,7 @@ decodeHistoriaUrgencias =
         |> required "medico" Decode.string
 
 
-encodeHistoriaUrgencias : Model -> Encode.Value
+encodeHistoriaUrgencias : HistoriaUrgencias -> Encode.Value
 encodeHistoriaUrgencias record =
     Encode.object
         [ ( "id", Encode.string <| record.id )
@@ -178,4 +216,44 @@ encodeHistoriaUrgencias record =
         , ( "diagnosticoRelacionado2", Encode.string <| record.diagnosticoRelacionado2 )
         , ( "diagnosticoRelacionado3", Encode.string <| record.diagnosticoRelacionado3 )
         , ( "medico", Encode.string <| record.medico )
+        ]
+
+
+encodeHistoriaUrgenciasOutput : HistoriaUrgencias -> Encode.Value
+encodeHistoriaUrgenciasOutput record =
+    Encode.object
+        [ ( "admitidoPor", Encode.string <| record.admitidoPor )
+        , ( "registro", Encode.string <| record.registro )
+        , ( "origenAtencion", Encode.string <| record.origenAtencion )
+        , ( "motivoConsulta", Encode.string <| record.motivoConsulta )
+        , ( "enfermedadActual", Encode.string <| record.enfermedadActual )
+        , ( "antecedentesFamiliares", Encode.string <| record.antecedentesFamiliares )
+        , ( "antecedentesPersonales", Encode.string <| record.antecedentesPersonales )
+        , ( "revisionSistemas", Encode.string <| record.antecedentesPersonales )
+        , ( "respuestaOcular", Encode.int <| record.respuestaOcular )
+        , ( "respuestaVerbal", Encode.int <| record.respuestaVerbal )
+        , ( "respuestaMotora", Encode.int <| record.respuestaMotora )
+        , ( "fuerzaSuperiorI", Encode.int <| record.fuerzaSuperiorI )
+        , ( "fuerzaSuperiorD", Encode.int <| record.fuerzaSuperiorD )
+        , ( "fuerzaInferiorI", Encode.int <| record.fuerzaInferiorI )
+        , ( "fuerzaInferiorD", Encode.int <| record.fuerzaInferiorD )
+        , ( "reflejosSuperiorI", Encode.string <| record.reflejosSuperiorI )
+        , ( "reflejosSuperiorD", Encode.string <| record.reflejosSuperiorD )
+        , ( "reflejosInferiorI", Encode.string <| record.reflejosInferiorI )
+        , ( "reflejosInferiorD", Encode.string <| record.reflejosInferiorD )
+        , ( "estadoGeneral", Encode.string <| record.estadoGeneral )
+        , ( "tensionArterialSistolica", Encode.int <| record.tensionArterialSistolica )
+        , ( "tensionArterialDiastolica", Encode.int <| record.tensionArterialDiastolica )
+        , ( "frecuenciaCardiaca", Encode.int <| record.frecuenciaCardiaca )
+        , ( "frecuenciaRespiratoria", Encode.int <| record.frecuenciaRespiratoria )
+        , ( "temperatura", Encode.float <| record.temperatura )
+        , ( "saturacionOxigeno", Encode.int <| record.saturacionOxigeno )
+        , ( "peso", Encode.float <| record.peso )
+        , ( "talla", Encode.float <| record.talla )
+        , ( "examenFisico", Encode.string <| record.examenFisico )
+        , ( "analisisConducta", Encode.string <| record.analisisConducta )
+        , ( "diagnosticoPrincipal", Encode.string <| record.diagnosticoPrincipal )
+        , ( "diagnosticoRelacionado1", Encode.string <| record.diagnosticoRelacionado1 )
+        , ( "diagnosticoRelacionado2", Encode.string <| record.diagnosticoRelacionado2 )
+        , ( "diagnosticoRelacionado3", Encode.string <| record.diagnosticoRelacionado3 )
         ]

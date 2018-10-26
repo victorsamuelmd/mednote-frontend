@@ -1,17 +1,15 @@
 module Page.EditarPaciente exposing (Model, Msg(..), init, update, view)
 
+import Data.Paciente exposing (Output, Paciente)
+import Data.Session exposing (Session)
+import Form exposing (Form)
+import Form.Value as Value exposing (Value)
 import Html exposing (Html)
 import Html.Attributes as Attributes
-import Page.BulmaForm as Bulma
-import Data.Paciente exposing (Output, Paciente)
-import Request.Paciente exposing (editar, obtener)
 import Http
-import Date
-import Data.Session exposing (Session)
-import Date.Format as Format
-import Page.PacienteForm exposing (form, Values, prellenar)
-import Form.Value as Value exposing (Value)
-import Form exposing (Form)
+import Page.BulmaForm as Bulma
+import Page.PacienteForm exposing (Values, form, prellenar)
+import Request.Paciente exposing (editar, obtener)
 
 
 type alias Model =

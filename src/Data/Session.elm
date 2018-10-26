@@ -3,11 +3,11 @@ module Data.Session exposing (Session, decodeSession)
 import Json.Decode as Decode
     exposing
         ( Decoder
-        , string
         , andThen
-        , succeed
         , fail
         , field
+        , string
+        , succeed
         )
 
 
@@ -45,7 +45,7 @@ grupoDecoder =
                         succeed Enfermera
 
                     _ ->
-                        fail "Invalid Grupo"
+                        fail "Grupo Invalido"
             )
 
 
