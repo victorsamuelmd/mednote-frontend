@@ -4,20 +4,20 @@ import Data.Paciente exposing (Output)
 import Data.Session exposing (Session)
 import Form exposing (Form)
 import Form.Value as Value exposing (Value)
+import Form.View
 import Html exposing (Html)
 import Html.Attributes as Attributes
 import Http
-import Page.BulmaForm as Bulma
 import Page.PacienteForm exposing (Values, form)
 import Request.Paciente exposing (crear, editar, obtener, obtenerLista)
 
 
 type Model
-    = FillingForm (Bulma.Model Values)
+    = FillingForm (Form.View.Model Values)
 
 
 type Msg
-    = FormChanged (Bulma.Model Values)
+    = FormChanged (Form.View.Model Values)
     | PacienteListo Output
     | PacienteListoHttp (Result Http.Error String)
 
@@ -37,7 +37,7 @@ init =
     , residenciaBarrio = Value.blank
     , residenciaDireccion = Value.blank
     }
-        |> Bulma.idle
+        |> Form.View.idle
         |> FillingForm
 
 
@@ -63,11 +63,11 @@ view model =
         FillingForm formModel ->
             Html.div [ Attributes.class "container" ]
                 [ Html.h2 [ Attributes.class "title" ] [ Html.text "Crear Paciente" ]
-                , Bulma.asHtml
+                , Form.View.asHtml
                     { onChange = FormChanged
                     , action = "Crear Paciente"
                     , loading = "Loading..."
-                    , validation = Bulma.ValidateOnSubmit
+                    , validation = Form.View.ValidateOnSubmit
                     }
                     (Form.map PacienteListo form)
                     formModel

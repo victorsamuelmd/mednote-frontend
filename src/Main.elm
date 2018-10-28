@@ -40,6 +40,7 @@ type Model
     = Autenticar Nav.Key Autenticar.Model
     | Admin Nav.Key Session Admin.Model
     | Medico Nav.Key Session Medico.Model
+    | Paciente Nav.Key Session Paciente.Model
     | NotFound Nav.Key Session
 
 
@@ -53,6 +54,9 @@ getKey model =
             keyNav
 
         Medico keyNav _ _ ->
+            keyNav
+
+        Paciente keyNav _ _ ->
             keyNav
 
         NotFound keyNav _ ->
@@ -71,6 +75,9 @@ toSession model =
         Medico _ session _ ->
             Just session
 
+        Paciente _ session _ ->
+            Just session
+
         NotFound _ session ->
             Just session
 
@@ -86,6 +93,9 @@ setPage key session route =
 
         LoginRoute ->
             ( Autenticar key Autenticar.init, Cmd.none )
+
+        PacientesRoute ->
+            ( Paciente.init, Cmd.none ) |> setWith (Paciente key session) (Cmd.map PacienteMsg)
 
         _ ->
             ( NotFound key session, Cmd.none )
@@ -132,6 +142,7 @@ type Msg
     | AutenticarMsg Autenticar.Msg
     | AdminMsg Admin.Msg
     | MedicoMsg Medico.Msg
+    | PacienteMsg Paciente.Msg
     | GotSession Decode.Value
 
 
@@ -165,6 +176,10 @@ update msg model =
         ( MedicoMsg subMsg, Medico key session subModel ) ->
             Medico.update session subMsg subModel
                 |> setWith (Medico key session) (Cmd.map MedicoMsg)
+
+        ( PacienteMsg subMsg, Paciente key session subModel ) ->
+            Paciente.update session subMsg subModel
+                |> setWith (Paciente key session) (Cmd.map PacienteMsg)
 
         ( UrlChanged url, _ ) ->
             manageUrl url model
@@ -206,6 +221,9 @@ subscriptions model =
         Medico keyNav session modelAdmin ->
             Sub.none
 
+        Paciente keyNav session modelAdmin ->
+            Sub.none
+
         NotFound _ _ ->
             Sub.none
 
@@ -230,6 +248,11 @@ view model =
         Medico key session record ->
             { title = "MedNote | Medico"
             , body = [ Medico.view record |> Html.map MedicoMsg ]
+            }
+
+        Paciente key session record ->
+            { title = "MedNote | Paciente"
+            , body = [ Paciente.view record |> Html.map PacienteMsg ]
             }
 
         NotFound _ _ ->

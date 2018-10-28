@@ -93,7 +93,16 @@ form =
 
         fechaNacimientoField =
             Form.textField
-                { parser = Ok 0
+                { parser =
+                    \str ->
+                        String.split "/" str
+                            |> (\lst ->
+                                    if List.length lst /= 3 then
+                                        Err "No es una fecha valida"
+
+                                    else
+                                        Ok (Time.millisToPosix 0)
+                               )
                 , value = .fechaNacimiento
                 , update = \value values -> { values | fechaNacimiento = value }
                 , attributes = { label = "Fecha de Nacimiento", placeholder = "Fecha de Nacimiento" }
@@ -169,7 +178,7 @@ prellenar { nombres, apellidos, genero, documentoTipo, documentoNumero, fechaNac
     , genero = Value.filled genero
     , documentoNumero = Value.filled documentoNumero
     , documentoTipo = Value.filled documentoTipo
-    , fechaNacimiento = Value.filled fechaNacimiento
+    , fechaNacimiento = Value.filled ""
     , telefono = Value.filled telefono
     , residenciaPais = Value.filled residenciaPais
     , residenciaDepartamento = Value.filled residenciaDepartamento
