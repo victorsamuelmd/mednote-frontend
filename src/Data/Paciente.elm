@@ -1,10 +1,10 @@
 module Data.Paciente exposing (Output, Paciente, decodePaciente, definirApellidos, definirDocumentoNumero, definirDocumentoTipo, definirFechaNacimiento, definirFechaUltimoIngreso, definirGenero, definirId, definirNombres, definirResidenciaBarrio, definirResidenciaDepartamento, definirResidenciaDireccion, definirResidenciaMunicipio, definirResidenciaPais, definirTelefono, definirUsuarioId, encodeOutput, encodePaciente, initialPaciente)
 
-import Helpers exposing (dateDecoder)
+import Helpers exposing (decodeTime)
 import Json.Decode as Decode exposing (Decoder, field)
-import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
+import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode as Encode
-import Time exposing (Time)
+import Time
 
 
 type alias Paciente =
@@ -15,8 +15,8 @@ type alias Paciente =
     , genero : String
     , documentoNumero : String
     , documentoTipo : String
-    , fechaNacimiento : Time
-    , fechaUltimoIngreso : Time
+    , fechaNacimiento : Time.Posix
+    , fechaUltimoIngreso : Time.Posix
     , telefono : String
     , residenciaPais : String
     , residenciaDepartamento : String
@@ -32,7 +32,7 @@ type alias Output =
     , genero : String
     , documentoNumero : String
     , documentoTipo : String
-    , fechaNacimiento : Time
+    , fechaNacimiento : Time.Posix
     , telefono : String
     , residenciaPais : String
     , residenciaDepartamento : String
@@ -64,7 +64,7 @@ initialPaciente =
 
 decodePaciente : Decoder Paciente
 decodePaciente =
-    decode Paciente
+    Decode.succeed Paciente
         |> required "id" Decode.string
         |> required "usuarioId" Decode.string
         |> required "nombres" Decode.string
@@ -72,8 +72,8 @@ decodePaciente =
         |> required "genero" Decode.string
         |> required "documentoNumero" Decode.string
         |> required "documentoTipo" Decode.string
-        |> required "fechaNacimiento" dateDecoder
-        |> required "fechaUltimoIngreso" dateDecoder
+        |> required "fechaNacimiento" decodeTime
+        |> required "fechaUltimoIngreso" decodeTime
         |> required "telefono" Decode.string
         |> required "residenciaPais" Decode.string
         |> required "residenciaDepartamento" Decode.string
@@ -92,7 +92,7 @@ encodePaciente model =
         , ( "genero", Encode.string model.genero )
         , ( "documentoNumero", Encode.string model.documentoNumero )
         , ( "documentoTipo", Encode.string model.documentoTipo )
-        , ( "fechaNacimiento", Encode.string <| Format.formatISO8601 model.fechaNacimiento )
+        , ( "fechaNacimiento", Encode.int (Time.posixToMillis model.fechaNacimiento) )
         , ( "telefono", Encode.string model.telefono )
         , ( "residenciaPais", Encode.string model.residenciaPais )
         , ( "residenciaDepartamento", Encode.string model.residenciaDepartamento )
@@ -110,7 +110,7 @@ encodeOutput model =
         , ( "genero", Encode.string model.genero )
         , ( "documentoNumero", Encode.string model.documentoNumero )
         , ( "documentoTipo", Encode.string model.documentoTipo )
-        , ( "fechaNacimiento", Encode.string <| Format.formatISO8601 model.fechaNacimiento )
+        , ( "fechaNacimiento", Encode.int (Time.posixToMillis model.fechaNacimiento) )
         , ( "telefono", Encode.string model.telefono )
         , ( "residenciaPais", Encode.string model.residenciaPais )
         , ( "residenciaDepartamento", Encode.string model.residenciaDepartamento )
@@ -157,22 +157,12 @@ definirDocumentoTipo a record =
 
 definirFechaNacimiento : String -> Paciente -> Paciente
 definirFechaNacimiento a record =
-    case Time.Posix a of
-        Ok date ->
-            { record | fechaNacimiento = date }
-
-        Err _ ->
-            record
+    Debug.todo "some"
 
 
 definirFechaUltimoIngreso : String -> Paciente -> Paciente
 definirFechaUltimoIngreso a record =
-    case Date.fromString a of
-        Ok date ->
-            { record | fechaUltimoIngreso = date }
-
-        Err _ ->
-            record
+    Debug.todo "some"
 
 
 definirTelefono : String -> Paciente -> Paciente

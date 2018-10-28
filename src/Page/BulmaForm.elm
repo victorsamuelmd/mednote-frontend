@@ -1,4 +1,10 @@
-module Page.BulmaForm exposing (..)
+module Page.BulmaForm exposing
+    ( Model, State(..), idle
+    , ViewConfig, Validation(..)
+    , asHtml
+    , custom, CustomConfig, FormConfig, TextFieldConfig, NumberFieldConfig, RangeFieldConfig
+    , CheckboxFieldConfig, RadioFieldConfig, SelectFieldConfig
+    )
 
 {-| This module provides helpers to render a [`Form`](Form#Form).
 If you just want to quickly render a [`Form`](Form#Form) as HTML, take a look at
@@ -39,7 +45,6 @@ import Form.Base.RangeField as RangeField
 import Form.Base.SelectField as SelectField
 import Form.Base.TextField as TextField
 import Form.Error as Error exposing (Error)
-import Form.Value as Value
 import Html exposing (Html)
 import Html.Attributes as Attributes
 import Html.Events as Events
@@ -313,10 +318,10 @@ custom :
     -> Form values msg
     -> Model values
     -> element
-custom config { onChange, action, loading, validation } form model =
+custom config { onChange, action, loading, validation } form_ model =
     let
         { fields, result } =
-            Form.fill form model.values
+            Form.fill form_ model.values
 
         errorTracking =
             (\(ErrorTracking e) -> e) model.errorTracking
@@ -326,12 +331,14 @@ custom config { onChange, action, loading, validation } form model =
                 Ok msg ->
                     if model.state == Loading then
                         Nothing
+
                     else
                         Just msg
 
                 Err _ ->
                     if errorTracking.showAllErrors then
                         Nothing
+
                     else
                         Just
                             (onChange
@@ -373,13 +380,13 @@ custom config { onChange, action, loading, validation } form model =
         showError label =
             errorTracking.showAllErrors || Set.member label errorTracking.showFieldError
     in
-        config.form
-            { onSubmit = onSubmit
-            , action = action
-            , loading = loading
-            , state = model.state
-            , fields = List.map fieldToElement fields
-            }
+    config.form
+        { onSubmit = onSubmit
+        , action = action
+        , loading = loading
+        , state = model.state
+        , fields = List.map fieldToElement fields
+        }
 
 
 type alias FieldConfig values msg =
@@ -393,98 +400,95 @@ type alias FieldConfig values msg =
 renderField : CustomConfig msg element -> FieldConfig values msg -> ( Form.Field values, Maybe Error ) -> element
 renderField customConfig ({ onChange, onBlur, disabled, showError } as fieldConfig) ( field, maybeError ) =
     let
-        blurWhenNotBlank value label =
-            if Value.raw value == Nothing then
-                Nothing
-            else
-                Maybe.map (\onBlur -> onBlur label) onBlur
+        blur label =
+            Maybe.map (\onBlurEvent -> onBlurEvent label) onBlur
     in
-        case field of
-            Form.Text type_ { attributes, value, update } ->
-                let
-                    config =
-                        { onChange = Just >> update >> onChange
-                        , onBlur = blurWhenNotBlank value attributes.label
-                        , disabled = disabled
-                        , value = Value.raw value |> Maybe.withDefault ""
-                        , error = maybeError
-                        , showError = showError attributes.label
-                        , attributes = attributes
-                        }
-                in
-                    case type_ of
-                        Form.TextRaw ->
-                            customConfig.textField config
-
-                        Form.TextArea ->
-                            customConfig.textareaField config
-
-                        Form.TextPassword ->
-                            customConfig.passwordField config
-
-                        Form.TextEmail ->
-                            customConfig.emailField config
-
-                        Form.TextSearch ->
-                            customConfig.searchField config
-
-            Form.Number { attributes, value, update } ->
-                customConfig.numberField
+    case field of
+        Form.Text type_ { attributes, value, update } ->
+            let
+                config =
                     { onChange = update >> onChange
-                    , onBlur = blurWhenNotBlank value attributes.label
+                    , onBlur = blur attributes.label
                     , disabled = disabled
-                    , value = Value.raw value
+                    , value = value
                     , error = maybeError
                     , showError = showError attributes.label
                     , attributes = attributes
                     }
+            in
+            case type_ of
+                Form.TextRaw ->
+                    customConfig.textField config
 
-            Form.Range { attributes, value, update } ->
-                customConfig.rangeField
-                    { onChange = update >> onChange
-                    , onBlur = blurWhenNotBlank value attributes.label
-                    , disabled = disabled
-                    , value = Value.raw value
-                    , error = maybeError
-                    , showError = showError attributes.label
-                    , attributes = attributes
-                    }
+                Form.TextArea ->
+                    customConfig.textareaField config
 
-            Form.Checkbox { attributes, value, update } ->
-                customConfig.checkboxField
-                    { onChange = Just >> update >> onChange
-                    , onBlur = blurWhenNotBlank value attributes.label
-                    , disabled = disabled
-                    , value = Value.raw value |> Maybe.withDefault False
-                    , error = maybeError
-                    , showError = showError attributes.label
-                    , attributes = attributes
-                    }
+                Form.TextPassword ->
+                    customConfig.passwordField config
 
-            Form.Radio { attributes, value, update } ->
-                customConfig.radioField
-                    { onChange = Just >> update >> onChange
-                    , onBlur = blurWhenNotBlank value attributes.label
-                    , disabled = disabled
-                    , value = Value.raw value |> Maybe.withDefault ""
-                    , error = maybeError
-                    , showError = showError attributes.label
-                    , attributes = attributes
-                    }
+                Form.TextEmail ->
+                    customConfig.emailField config
 
-            Form.Select { attributes, value, update } ->
-                customConfig.selectField
-                    { onChange = Just >> update >> onChange
-                    , onBlur = blurWhenNotBlank value attributes.label
-                    , disabled = disabled
-                    , value = Value.raw value |> Maybe.withDefault ""
-                    , error = maybeError
-                    , showError = showError attributes.label
-                    , attributes = attributes
-                    }
+                Form.TextSearch ->
+                    customConfig.searchField config
 
-            Form.Group fields ->
-                customConfig.group (List.map (renderField customConfig fieldConfig) fields)
+        Form.Number { attributes, value, update } ->
+            customConfig.numberField
+                { onChange = update >> onChange
+                , onBlur = blur attributes.label
+                , disabled = disabled
+                , value = value
+                , error = maybeError
+                , showError = showError attributes.label
+                , attributes = attributes
+                }
+
+        Form.Range { attributes, value, update } ->
+            customConfig.rangeField
+                { onChange = update >> onChange
+                , onBlur = blur attributes.label
+                , disabled = disabled
+                , value = value
+                , error = maybeError
+                , showError = showError attributes.label
+                , attributes = attributes
+                }
+
+        Form.Checkbox { attributes, value, update } ->
+            customConfig.checkboxField
+                { onChange = update >> onChange
+                , onBlur = blur attributes.label
+                , disabled = disabled
+                , value = value
+                , error = maybeError
+                , showError = showError attributes.label
+                , attributes = attributes
+                }
+
+        Form.Radio { attributes, value, update } ->
+            customConfig.radioField
+                { onChange = update >> onChange
+                , onBlur = blur attributes.label
+                , disabled = disabled
+                , value = value
+                , error = maybeError
+                , showError = showError attributes.label
+                , attributes = attributes
+                }
+
+        Form.Select { attributes, value, update } ->
+            customConfig.selectField
+                { onChange = update >> onChange
+                , onBlur = blur attributes.label
+                , disabled = disabled
+                , value = value
+                , error = maybeError
+                , showError = showError attributes.label
+                , attributes = attributes
+                }
+
+        Form.Group fields ->
+            customConfig.group (List.map (renderField customConfig fieldConfig) fields)
 
 
 
@@ -548,45 +552,42 @@ form { onSubmit, action, loading, state, fields } =
                 |> Maybe.map (Events.onSubmit >> List.singleton)
                 |> Maybe.withDefault []
     in
-        Html.form (Attributes.class "column" :: onSubmitEvent)
-            (List.concat
-                [ fields
-                , [ case state of
-                        Error error ->
-                            errorMessage error
+    Html.form (Attributes.class "elm-form" :: onSubmitEvent)
+        (List.concat
+            [ fields
+            , [ case state of
+                    Error error ->
+                        errorMessage error
 
-                        _ ->
-                            Html.text ""
-                  , Html.button
-                        [ Attributes.type_ "submit"
-                        , Attributes.disabled (onSubmit == Nothing)
-                        , Attributes.class "button is-primary"
-                        ]
-                        [ if state == Loading then
-                            Html.text loading
-                          else
-                            Html.text action
-                        ]
-                  ]
-                ]
-            )
+                    _ ->
+                        Html.text ""
+              , Html.button
+                    [ Attributes.type_ "submit"
+                    , Attributes.disabled (onSubmit == Nothing)
+                    ]
+                    [ if state == Loading then
+                        Html.text loading
+
+                      else
+                        Html.text action
+                    ]
+              ]
+            ]
+        )
 
 
 inputField : String -> TextFieldConfig msg -> Html msg
 inputField type_ { onChange, onBlur, disabled, value, error, showError, attributes } =
-    Html.div [ Attributes.class "control" ]
-        [ Html.input
-            ([ Events.onInput onChange
-             , Attributes.disabled disabled
-             , Attributes.value value
-             , Attributes.placeholder attributes.placeholder
-             , Attributes.type_ type_
-             , Attributes.class "input"
-             ]
-                |> withMaybeAttribute Events.onBlur onBlur
-            )
-            []
-        ]
+    Html.input
+        ([ Events.onInput onChange
+         , Attributes.disabled disabled
+         , Attributes.value value
+         , Attributes.placeholder attributes.placeholder
+         , Attributes.type_ type_
+         ]
+            |> withMaybeAttribute Events.onBlur onBlur
+        )
+        []
         |> withLabelAndError attributes.label showError error
 
 
@@ -596,7 +597,6 @@ textareaField { onChange, onBlur, disabled, value, error, showError, attributes 
         ([ Events.onInput onChange
          , Attributes.disabled disabled
          , Attributes.placeholder attributes.placeholder
-         , Attributes.class "textarea"
          ]
             |> withMaybeAttribute Events.onBlur onBlur
         )
@@ -609,13 +609,13 @@ numberField { onChange, onBlur, disabled, value, error, showError, attributes } 
     Html.input
         ([ Events.onInput (fromString String.toFloat value >> onChange)
          , Attributes.disabled disabled
-         , Attributes.value (value |> Maybe.map toString |> Maybe.withDefault "")
+         , Attributes.value (value |> Maybe.map String.fromFloat |> Maybe.withDefault "")
          , Attributes.placeholder attributes.placeholder
          , Attributes.type_ "number"
-         , Attributes.step (toString attributes.step)
+         , Attributes.step (String.fromFloat attributes.step)
          ]
-            |> withMaybeAttribute (toString >> Attributes.max) attributes.max
-            |> withMaybeAttribute (toString >> Attributes.min) attributes.min
+            |> withMaybeAttribute (String.fromFloat >> Attributes.max) attributes.max
+            |> withMaybeAttribute (String.fromFloat >> Attributes.min) attributes.min
             |> withMaybeAttribute Events.onBlur onBlur
         )
         []
@@ -629,16 +629,16 @@ rangeField { onChange, onBlur, disabled, value, error, showError, attributes } =
         [ Html.input
             ([ Events.onInput (fromString String.toFloat value >> onChange)
              , Attributes.disabled disabled
-             , Attributes.value (value |> Maybe.map toString |> Maybe.withDefault "")
+             , Attributes.value (value |> Maybe.map String.fromFloat |> Maybe.withDefault "")
              , Attributes.type_ "range"
-             , Attributes.step (toString attributes.step)
+             , Attributes.step (String.fromFloat attributes.step)
              ]
-                |> withMaybeAttribute (toString >> Attributes.max) attributes.max
-                |> withMaybeAttribute (toString >> Attributes.min) attributes.min
+                |> withMaybeAttribute (String.fromFloat >> Attributes.max) attributes.max
+                |> withMaybeAttribute (String.fromFloat >> Attributes.min) attributes.min
                 |> withMaybeAttribute Events.onBlur onBlur
             )
             []
-        , Html.span [] [ Html.text (value |> Maybe.map toString |> Maybe.withDefault "") ]
+        , Html.span [] [ Html.text (value |> Maybe.map String.fromFloat |> Maybe.withDefault "") ]
         ]
         |> withLabelAndError attributes.label showError error
 
@@ -666,7 +666,7 @@ radioField : RadioFieldConfig msg -> Html msg
 radioField { onChange, onBlur, disabled, value, error, showError, attributes } =
     let
         radio ( key, label ) =
-            Html.label [ Attributes.class "radio" ]
+            Html.label []
                 [ Html.input
                     ([ Attributes.name attributes.label
                      , Attributes.value key
@@ -681,19 +681,19 @@ radioField { onChange, onBlur, disabled, value, error, showError, attributes } =
                 , Html.text label
                 ]
     in
-        Html.div [ Attributes.class "control" ] (List.map radio attributes.options)
-            |> withLabelAndError attributes.label showError error
+    Html.fieldset [] (List.map radio attributes.options)
+        |> withLabelAndError attributes.label showError error
 
 
 selectField : SelectFieldConfig msg -> Html msg
 selectField { onChange, onBlur, disabled, value, error, showError, attributes } =
     let
-        toOption ( key, label ) =
+        toOption ( key, label_ ) =
             Html.option
                 [ Attributes.value key
                 , Attributes.selected (value == key)
                 ]
-                [ Html.text label ]
+                [ Html.text label_ ]
 
         placeholderOption =
             Html.option
@@ -702,31 +702,27 @@ selectField { onChange, onBlur, disabled, value, error, showError, attributes } 
                 ]
                 [ Html.text ("-- " ++ attributes.placeholder ++ " --") ]
     in
-        Html.div [ Attributes.class "control" ]
-            [ Html.div [ Attributes.class "select" ]
-                [ Html.select
-                    ([ Events.onInput onChange
-                     , Attributes.disabled disabled
-                     ]
-                        |> withMaybeAttribute Events.onBlur onBlur
-                    )
-                    (placeholderOption :: List.map toOption attributes.options)
-                ]
-            ]
-            |> withLabelAndError attributes.label showError error
+    Html.select
+        ([ Events.onInput onChange
+         , Attributes.disabled disabled
+         ]
+            |> withMaybeAttribute Events.onBlur onBlur
+        )
+        (placeholderOption :: List.map toOption attributes.options)
+        |> withLabelAndError attributes.label showError error
 
 
 group : List (Html msg) -> Html msg
 group =
-    Html.div [ Attributes.class "field is-grouped" ]
+    Html.div [ Attributes.class "elm-form-group" ]
 
 
 wrapInFieldContainer : Bool -> Maybe Error -> List (Html msg) -> Html msg
 wrapInFieldContainer showError error =
     Html.div
         [ Attributes.classList
-            [ ( "field", True )
-            , ( "field", showError && error /= Nothing )
+            [ ( "elm-form-field", True )
+            , ( "elm-form-field-error", showError && error /= Nothing )
             ]
         ]
 
@@ -742,7 +738,7 @@ withLabelAndError label showError error fieldAsHtml =
 
 fieldLabel : String -> Html msg
 fieldLabel label =
-    Html.label [ Attributes.class "label" ] [ Html.text label ]
+    Html.label [] [ Html.text label ]
 
 
 maybeErrorMessage : Bool -> Maybe Error -> Html msg
@@ -752,20 +748,21 @@ maybeErrorMessage showError maybeError =
             |> Maybe.map errorToString
             |> Maybe.map errorMessage
             |> Maybe.withDefault (Html.text "")
+
     else
         Html.text ""
 
 
 errorMessage : String -> Html msg
 errorMessage =
-    Html.text >> List.singleton >> Html.div [ Attributes.class "help is-danger" ]
+    Html.text >> List.singleton >> Html.div [ Attributes.class "elm-form-error" ]
 
 
 errorToString : Error -> String
 errorToString error =
     case error of
         Error.RequiredFieldIsEmpty ->
-            "Este campo es necesario."
+            "This field is required"
 
         Error.ValidationFailed validationError ->
             validationError
@@ -773,16 +770,16 @@ errorToString error =
 
 withMaybeAttribute : (a -> Html.Attribute msg) -> Maybe a -> List (Html.Attribute msg) -> List (Html.Attribute msg)
 withMaybeAttribute toAttribute maybeValue attrs =
-    Maybe.map (toAttribute >> flip (::) attrs) maybeValue
+    Maybe.map (toAttribute >> (\attr -> attr :: attrs)) maybeValue
         |> Maybe.withDefault attrs
 
 
-fromString : (String -> Result err a) -> Maybe a -> String -> Maybe a
+fromString : (String -> Maybe a) -> Maybe a -> String -> Maybe a
 fromString parse currentValue input =
     if String.isEmpty input then
         Nothing
+
     else
         parse input
-            |> Result.toMaybe
             |> Maybe.map Just
             |> Maybe.withDefault currentValue

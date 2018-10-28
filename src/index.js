@@ -9,19 +9,21 @@ function parseJwt(token) {
   return JSON.parse(window.atob(base64));
 };
 
-var token = localStorage.getItem("token");
-var obj;
-
-if (token) {
-  var session = parseJwt(token);
-  obj = {
-    usuario: session.usuario,
-    grupo: session.grupo,
-    autorizacion: token,
-    id: session.id
+function getSession(tok) {
+  if (tok !== null) {
+    var session = parseJwt(tok);
+    return {
+      usuario: session.usuario,
+      grupo: session.grupo,
+      autorizacion: tok,
+      id: session.id
+    }
   }
-  console.log(obj);
-}
+  return null
+};
+
+var token = localStorage.getItem("token");
+var obj = getSession(token);
 
 var app = Elm.Main.init({
   node: document.getElementById('root'),
@@ -42,12 +44,6 @@ app.ports.toJs.subscribe(function(str) {
 
 app.ports.storeSession.subscribe(function(user) {
   localStorage.setItem("token", user)
-  var session = parseJwt(token);
-  obj = {
-    usuario: session.usuario,
-    grupo: session.grupo,
-    autorizacion: token,
-    id: session.id
-  }
-  app.ports.gotSession.send(obj);
+  var newToken = localStorage.getItem("token")
+  app.ports.gotSession.send(getSession(newToken));
 });

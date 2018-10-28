@@ -8,6 +8,7 @@ import Html.Attributes as Attributes
 import Html.Events as Events
 import Http
 import Request.Paciente exposing (obtenerLista)
+import Time
 
 
 type alias Model =
@@ -81,11 +82,11 @@ update session msg model =
 
 
 view : Model -> Html Msg
-view { resultadoPacientes } =
+view { porNombres, porApellidos, porDocumentoNumero, resultadoPacientes } =
     Html.section [ Attributes.class "column" ]
-        [ inputControl "Nombres" "buscarNombres" "" Nothing (CambiarCampo PorNombres)
-        , inputControl "Apellidos" "buscarApellidos" "" Nothing (CambiarCampo PorApellidos)
-        , inputControl "Documento" "buscarDocumento" "" Nothing (CambiarCampo PorDocumentoNumero)
+        [ inputControl "Nombres" "buscarNombres" porNombres Nothing (CambiarCampo PorNombres)
+        , inputControl "Apellidos" "buscarApellidos" porApellidos Nothing (CambiarCampo PorApellidos)
+        , inputControl "Documento" "buscarDocumento" porDocumentoNumero Nothing (CambiarCampo PorDocumentoNumero)
         , Html.button [ Attributes.class "button is-primary", Events.onClick BuscarPaciente ] [ Html.text "Buscar" ]
         , Html.div [ Attributes.class "container" ] <| List.map verPaciente resultadoPacientes
         ]
@@ -102,7 +103,7 @@ verPaciente pct =
             , Html.div [ Attributes.class "card-content" ]
                 [ Html.h5 [ Attributes.class "subtitle" ]
                     [ Html.text <| pct.documentoTipo ++ " ", Html.text pct.documentoNumero ]
-                , Html.p [] [ Html.text <| "Fecha de Nacimiento: " ++ Format.format "%Y/%m/%d" pct.fechaNacimiento ]
+                , Html.p [] [ Html.text <| "Fecha de Nacimiento: " ++ String.fromInt (Time.posixToMillis pct.fechaNacimiento) ]
                 , Html.p [] [ Html.text <| "Genero: " ++ pct.genero ]
                 ]
             , Html.div [ Attributes.class "card-footer" ]

@@ -93,7 +93,7 @@ form =
 
         fechaNacimientoField =
             Form.textField
-                { parser = Date.fromString
+                { parser = Ok 0
                 , value = .fechaNacimiento
                 , update = \value values -> { values | fechaNacimiento = value }
                 , attributes = { label = "Fecha de Nacimiento", placeholder = "Fecha de Nacimiento" }
@@ -169,7 +169,7 @@ prellenar { nombres, apellidos, genero, documentoTipo, documentoNumero, fechaNac
     , genero = Value.filled genero
     , documentoNumero = Value.filled documentoNumero
     , documentoTipo = Value.filled documentoTipo
-    , fechaNacimiento = Value.filled <| Format.format "%Y/%m/%d" fechaNacimiento
+    , fechaNacimiento = Value.filled fechaNacimiento
     , telefono = Value.filled telefono
     , residenciaPais = Value.filled residenciaPais
     , residenciaDepartamento = Value.filled residenciaDepartamento

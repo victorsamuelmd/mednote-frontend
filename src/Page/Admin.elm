@@ -6,7 +6,7 @@ module Page.Admin exposing
     , adminVista
     , crearUsuarioCuestionario
     , editarUsuarioVista
-    , inicial
+    , init
     , update
     , view
     , viewUsers
@@ -40,17 +40,21 @@ type alias Model =
     , listaUsuarios : List Usuario
     , usuarioCrear : UsuarioCrear
     , errorUsuario : Maybe String
+    , error : String
     }
 
 
-inicial : Model
-inicial =
-    { vista = ListaUsuarioVista
-    , porNombre = ""
-    , listaUsuarios = []
-    , usuarioCrear = UsuarioCrear "" "" "" ""
-    , errorUsuario = Nothing
-    }
+init : Session -> ( Model, Cmd Msg )
+init { autorizacion } =
+    ( { vista = ListaUsuarioVista
+      , porNombre = ""
+      , listaUsuarios = []
+      , usuarioCrear = UsuarioCrear "" "" "" ""
+      , errorUsuario = Nothing
+      , error = ""
+      }
+    , Cmd.batch [ solicitar autorizacion SolicitarUsuariosHttp ]
+    )
 
 
 type Msg
@@ -89,17 +93,27 @@ update session action model =
             )
 
         SolicitarUsuariosHttp (Err err) ->
-            ( model, Cmd.none )
+            case err of
+                Http.BadPayload str _ ->
+                    ( { model | error = str }, Cmd.none )
+
+                Http.BadStatus _ ->
+                    ( { model | error = "Bad Status" }, Cmd.none )
+
+                Http.NetworkError ->
+                    ( { model | error = "No conexion" }, Cmd.none )
+
+                Http.Timeout ->
+                    ( { model | error = "Se demoro mucho" }, Cmd.none )
+
+                Http.BadUrl _ ->
+                    ( { model | error = "Url mal" }, Cmd.none )
 
         EditarUsuario usr ->
             ( { model | vista = EditarUsuarioVista usr }, Cmd.none )
 
         DefinirNombreUsuarioCrear str ->
-            ( { model
-                | usuarioCrear =
-                    model.usuarioCrear
-                        |> definirUsuario str
-              }
+            ( { model | usuarioCrear = definirUsuario str model.usuarioCrear }
             , Cmd.none
             )
 
@@ -196,7 +210,7 @@ adminVista : Model -> AdminVista -> Html Msg
 adminVista model page =
     case page of
         CrearUsuarioVista ->
-            div [] [ crearUsuarioCuestionario model.errorUsuario ]
+            div [] [ crearUsuarioCuestionario model ]
 
         ListaUsuarioVista ->
             div [ class "container" ] [ viewUsers model.listaUsuarios ]
@@ -229,33 +243,33 @@ editarUsuarioVista usr =
         ]
 
 
-crearUsuarioCuestionario : Maybe String -> Html Msg
-crearUsuarioCuestionario error =
+crearUsuarioCuestionario : Model -> Html Msg
+crearUsuarioCuestionario model =
     div [ class "container" ]
         [ div [ class "column is-6 is-offset-3" ]
             [ h2 [ class "title" ] [ text "Crear Usuario" ]
             , inputControl
                 "Nombre de Usuario"
                 "usuario"
-                ""
-                error
+                model.usuarioCrear.usuario
+                model.errorUsuario
                 DefinirNombreUsuarioCrear
             , inputControl
                 "Grupo"
                 "grupo"
-                ""
+                model.usuarioCrear.grupo
                 Nothing
                 DefinirGrupoCrear
             , inputControl
                 "Correo Electronico"
                 "correoElectronico"
-                ""
+                model.usuarioCrear.correoElectronico
                 Nothing
                 DefinirCorreoElectronicoCrear
             , inputControl
                 "Contrasena"
                 "palabraClave"
-                ""
+                model.usuarioCrear.palabraClave
                 Nothing
                 DefinirPalabraClaveCrear
             , div [ class "buttons" ]

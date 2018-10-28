@@ -1,9 +1,15 @@
-module Helpers exposing (inputControl, textareaControl)
+module Helpers exposing (decodeTime, inputControl, textareaControl)
 
 import Html exposing (Html)
 import Html.Attributes as Attributes
 import Html.Events as Events
-import Json.Decode as JsDecode
+import Json.Decode as Decode
+import Time
+
+
+decodeTime : Decode.Decoder Time.Posix
+decodeTime =
+    Decode.int |> Decode.andThen (\int -> Decode.succeed (Time.millisToPosix int))
 
 
 inputControl : String -> String -> String -> Maybe String -> (String -> msg) -> Html msg

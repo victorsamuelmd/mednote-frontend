@@ -1,4 +1,4 @@
-module Main exposing (Model, Msg(..), init, main, subscriptions, update, view, viewLink)
+module Main exposing (main)
 
 import Browser
 import Browser.Navigation as Nav
@@ -8,6 +8,8 @@ import Html.Attributes exposing (..)
 import Json.Decode as Decode
 import Page.Admin as Admin
 import Page.Autenticar as Autenticar
+import Page.Medico as Medico
+import Page.Paciente as Paciente
 import Ports
 import Request.Usuario as Usuario
 import Router exposing (..)
@@ -37,7 +39,70 @@ main =
 type Model
     = Autenticar Nav.Key Autenticar.Model
     | Admin Nav.Key Session Admin.Model
-    | NotFound
+    | Medico Nav.Key Session Medico.Model
+    | NotFound Nav.Key Session
+
+
+getKey : Model -> Nav.Key
+getKey model =
+    case model of
+        Autenticar keyNav _ ->
+            keyNav
+
+        Admin keyNav _ _ ->
+            keyNav
+
+        Medico keyNav _ _ ->
+            keyNav
+
+        NotFound keyNav _ ->
+            keyNav
+
+
+toSession : Model -> Maybe Session
+toSession model =
+    case model of
+        Autenticar keyNav modelAutenticar ->
+            Nothing
+
+        Admin _ session _ ->
+            Just session
+
+        Medico _ session _ ->
+            Just session
+
+        NotFound _ session ->
+            Just session
+
+
+setPage : Nav.Key -> Session -> Route -> ( Model, Cmd Msg )
+setPage key session route =
+    case route of
+        AdminRoute ->
+            Admin.init session |> setWith (Admin key session) (Cmd.map AdminMsg)
+
+        MedicoRoute ->
+            ( Medico.init, Cmd.none ) |> setWith (Medico key session) (Cmd.map MedicoMsg)
+
+        LoginRoute ->
+            ( Autenticar key Autenticar.init, Cmd.none )
+
+        _ ->
+            ( NotFound key session, Cmd.none )
+
+
+setWith a b c =
+    c |> Tuple.mapFirst a |> Tuple.mapSecond b
+
+
+manageUrl : Url.Url -> Model -> ( Model, Cmd Msg )
+manageUrl url model =
+    case toSession model of
+        Just session ->
+            setPage (getKey model) session (parseLocation url)
+
+        Nothing ->
+            ( Autenticar (getKey model) Autenticar.init, Cmd.none )
 
 
 init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
@@ -66,6 +131,7 @@ type Msg
     | UrlChanged Url.Url
     | AutenticarMsg Autenticar.Msg
     | AdminMsg Admin.Msg
+    | MedicoMsg Medico.Msg
     | GotSession Decode.Value
 
 
@@ -90,13 +156,15 @@ update msg model =
 
         ( AutenticarMsg subMsg, Autenticar key subModel ) ->
             Autenticar.update subMsg subModel
-                |> Tuple.mapFirst (Autenticar key)
-                |> Tuple.mapSecond (Cmd.map AutenticarMsg)
+                |> setWith (Autenticar key) (Cmd.map AutenticarMsg)
 
         ( AdminMsg subMsg, Admin key session subModel ) ->
             Admin.update session subMsg subModel
-                |> Tuple.mapFirst (Admin key session)
-                |> Tuple.mapSecond (Cmd.map AdminMsg)
+                |> setWith (Admin key session) (Cmd.map AdminMsg)
+
+        ( MedicoMsg subMsg, Medico key session subModel ) ->
+            Medico.update session subMsg subModel
+                |> setWith (Medico key session) (Cmd.map MedicoMsg)
 
         ( UrlChanged url, _ ) ->
             manageUrl url model
@@ -104,26 +172,22 @@ update msg model =
         ( GotSession val, Autenticar key _ ) ->
             case Decode.decodeValue Session.decodeSession val of
                 Ok session ->
-                    ( Admin key session Admin.inicial, Nav.pushUrl key "/admin" )
+                    Admin.init session
+                        |> Tuple.mapFirst (Admin key session)
+                        |> Tuple.mapSecond (\a -> Cmd.batch [ Nav.pushUrl key "/admin", Cmd.map AdminMsg a ])
 
                 Err str ->
-                    ( model, Cmd.none )
+                    ( model, Cmd.none ) |> Debug.log (Debug.toString str)
 
         ( _, _ ) ->
             ( model, Cmd.none )
 
 
-manageUrl : Url.Url -> Model -> ( Model, Cmd Msg )
-manageUrl url model =
-    case parseLocation url of
-        LoginRoute ->
-            ( model, Cmd.none )
-
-        AdminRoute ->
-            ( model, Cmd.none )
-
-        _ ->
-            ( model, Cmd.none )
+updateWith : (subModel -> Model) -> (subMsg -> Msg) -> Model -> ( subModel, Cmd subMsg ) -> ( Model, Cmd Msg )
+updateWith toModel toMsg model ( subModel, subCmd ) =
+    ( toModel subModel
+    , Cmd.map toMsg subCmd
+    )
 
 
 
@@ -139,7 +203,10 @@ subscriptions model =
         Admin keyNav session modelAdmin ->
             Sub.none
 
-        NotFound ->
+        Medico keyNav session modelAdmin ->
+            Sub.none
+
+        NotFound _ _ ->
             Sub.none
 
 
@@ -160,7 +227,12 @@ view model =
             , body = [ Admin.view record |> Html.map AdminMsg ]
             }
 
-        NotFound ->
+        Medico key session record ->
+            { title = "MedNote | Medico"
+            , body = [ Medico.view record |> Html.map MedicoMsg ]
+            }
+
+        NotFound _ _ ->
             { title = "MedNote | Ruta no encontrada"
             , body = []
             }
@@ -175,25 +247,6 @@ decodeSessionVal : Decode.Value -> Maybe Session
 decodeSessionVal val =
     Decode.decodeValue Session.decodeSession val
         |> Result.toMaybe
-
-
-setPage : Nav.Key -> Session -> Route -> ( Model, Cmd Msg )
-setPage key session route =
-    case route of
-        AdminRoute ->
-            ( Admin key session Admin.inicial
-            , Cmd.map AdminMsg
-                (Usuario.solicitar
-                    session.autorizacion
-                    Admin.SolicitarUsuariosHttp
-                )
-            )
-
-        LoginRoute ->
-            ( Autenticar key Autenticar.init, Cmd.none )
-
-        _ ->
-            ( NotFound, Cmd.none )
 
 
 
